@@ -1,0 +1,51 @@
+services:
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+  alloy:
+    image: grafana/alloy:latest
+    container_name: alloy
+    command: ["run", "/etc/alloy/conf.alloy"]
+    ports:
+      - "12345:12345"
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    volumes:
+      - ./.docker/conf.alloy:/etc/alloy/conf.alloy
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    command:
+      - "-config.file=/etc/loki/local-config.yaml"
+      - "-pattern-ingester.enabled=true"
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./.docker/loki.yaml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.enable-remote-write-receiver"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./.docker/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+
+volumes:
+  grafana_data:
+  prometheus_data:
+  loki_data:

@@ -1,0 +1,54 @@
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+*.tar.gz
+.mypy_cache/
+.pytest_cache/
+.coverage
+.ruff_cache/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets (NEVER commit)
+.env
+*.pem
+*.key
+credentials.json
+
+# Logs & databases
+*.log
+*.db
+*.sqlite3
+
+# Project specific
+.claude/
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl

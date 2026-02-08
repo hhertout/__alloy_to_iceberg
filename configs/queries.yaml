@@ -1,0 +1,15 @@
+# <ds_type>:
+#   <ds_name>:
+#     queries:
+#       - id: <query_id>
+#         query: <query_string>
+
+prometheus:
+  Mimir:
+    - id: alloy_queue_length
+      query: "avg_over_time(scrape_duration_seconds{job=\"integrations/self\"}[1m])"
+
+loki:
+  Loki:
+    - id: loki_request_rate
+      query: "count_over_time({service_name=\"alloy\"} |= \"info\" [1m])"
