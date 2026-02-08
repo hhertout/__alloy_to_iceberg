@@ -7,6 +7,7 @@ from azure.storage.blob import BlobServiceClient
 
 from utils.exceptions import AzureConnectionError, AzureUploadError
 
+
 class AzureInterface:
     def __init__(self) -> None:
         connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
@@ -40,9 +41,7 @@ class AzureInterface:
         filename = f"{self.file_prefix}obs-dataset_{nowstr}.parquet"
         print("\nUploading to Azure Storage as blob:\n\t" + filename)
         try:
-            conn = self.blob_client.get_blob_client(
-                container=self.container_name, blob=filename
-            )
+            conn = self.blob_client.get_blob_client(container=self.container_name, blob=filename)
             conn.upload_blob(data, overwrite=True)
         except AzureError as e:
             raise AzureUploadError(f"Failed to upload blob '{filename}': {e}") from e

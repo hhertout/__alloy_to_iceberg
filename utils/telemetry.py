@@ -45,18 +45,15 @@ def setup_telemetry(
     service_name = os.environ.get("OTEL_SERVICE_NAME", _SERVICE_NAME)
     service_namespace = os.environ.get("OTEL_SERVICE_NAMESPACE", _SERVICE_NAMESPACE)
     service_version = os.environ.get("OTEL_SERVICE_VERSION", _SERVICE_VERSION)
-    
+
     # Silence the OTLP exporter's retry/failure logs when the collector is unreachable.
-    logging.getLogger("opentelemetry.exporter.otlp.proto.grpc.exporter").setLevel(
-        logging.CRITICAL
-    )
+    logging.getLogger("opentelemetry.exporter.otlp.proto.grpc.exporter").setLevel(logging.CRITICAL)
 
     resource = Resource.create(
         {
             "service.name": service_name,
             "service.version": service_version,
             "deployment.environment": env,
-            "service.namespace": service_namespace,
         }
     )
 

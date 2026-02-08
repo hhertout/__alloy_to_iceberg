@@ -1,6 +1,6 @@
 """Utilities for computing time ranges used by the data pipeline."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 
 def get_previous_day_range(now: datetime | None = None) -> tuple[float, float]:
@@ -22,7 +22,7 @@ def get_previous_day_range(now: datetime | None = None) -> tuple[float, float]:
         - to:   2026-03-01 23:59:59 UTC  →  1740873599.0
     """
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
     yesterday = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
 

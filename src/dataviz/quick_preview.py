@@ -11,7 +11,7 @@ def visualize_df(df: pl.DataFrame, title: str, cols: list) -> None:
 
     fig, ax = plt.subplots(figsize=(10, 6))
     for col in cols:
-        ax.plot(timestamps, df[col], marker='o', markersize=2)
+        ax.plot(timestamps, df[col], marker="o", markersize=2)  # type: ignore[arg-type]
     ax.set_title(title)
     ax.set_xlabel("Timestamp")
     ax.set_ylabel("Value")

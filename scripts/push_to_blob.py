@@ -11,14 +11,15 @@ from dotenv import load_dotenv
 from configs.constants import OUTPUT_DIR, DatasourceKind
 from src.data.azure import AzureInterface
 from src.data.grafana import GrafanaDao
-from utils.timerange import get_previous_day_range
 from src.data.grafana_dto import TimeSeriesData
 from src.dataviz.quick_preview import visualize_df
 from src.processing.data_processing import Processor
+from src.processing.merge_dataframes import merge_dataframes
 from utils import get_logger, get_meter, shutdown_telemetry
-from utils.telemetry import get_default_attributes
-from utils.exceptions import DataValidationError
 from utils.askii_art import print_ascii_art
+from utils.exceptions import DataValidationError
+from utils.telemetry import get_default_attributes
+from utils.timerange import get_previous_day_range
 
 CONFIG_PROM_KEY = "prometheus"
 CONFIG_LOKI_KEY = "loki"
@@ -52,18 +53,24 @@ _push_to_blob_failed = _meter.create_counter(
     description="Number of failed push to blob operations",
 )
 
+
 def read_queries_file(config_path: str = "configs/queries.yaml") -> Any:
     with open(config_path) as f:
-            queries = yaml.safe_load(f)
-            return queries
+        queries = yaml.safe_load(f)
+        return queries
 
-def extract_promtheus_queries(queries: Any) -> list[dict[str, str]]:
+
+def extract_promtheus_queries(queries: Any) -> dict[str, list[dict[str, str]]]:
     """Extracts Prometheus queries from the configuration."""
-    return queries.get(CONFIG_PROM_KEY, [])
+    result: dict[str, list[dict[str, str]]] = queries.get(CONFIG_PROM_KEY, {})
+    return result
 
-def extract_loki_queries(queries: Any) -> list[dict[str, str]]:
+
+def extract_loki_queries(queries: Any) -> dict[str, list[dict[str, str]]]:
     """Extracts Loki queries from the configuration."""
-    return queries.get(CONFIG_LOKI_KEY, [])
+    result: dict[str, list[dict[str, str]]] = queries.get(CONFIG_LOKI_KEY, {})
+    return result
+
 
 async def _fetch_query(
     grafana_dao: GrafanaDao,
@@ -87,7 +94,7 @@ async def _fetch_query(
             from_time=from_time,
             to_time=to_time,
         )
-        return response.to_time_series(query_id)
+        return response.to_time_series(query_id, agg=query.get("agg", "mean"))
     except DataValidationError as e:
         _queries_failed.add(1, attributes=get_default_attributes())
         log.error(f"Validation failed for query '{query_id}': {e}")
@@ -112,9 +119,7 @@ async def _fetch_for_kind(
     tasks: list[asyncio.Task[TimeSeriesData | None]] = []
 
     for ds_name, ds_queries in ds_configs.items():
-        datasource_uid = await asyncio.to_thread(
-            grafana_dao.get_datasource_uid, ds_name
-        )
+        datasource_uid = await asyncio.to_thread(grafana_dao.get_datasource_uid, ds_name)
         for query in ds_queries:
             tasks.append(
                 asyncio.create_task(
@@ -152,6 +157,7 @@ async def retrieve_data(
     # Merge results (loki overwrites prometheus on duplicate ids)
     return {**prom_data, **loki_data}
 
+
 def convert_dataframes(data: dict[str, TimeSeriesData]) -> dict[str, pl.DataFrame]:
     """Converts validated TimeSeriesData to Polars DataFrames.
 
@@ -174,42 +180,16 @@ def convert_dataframes(data: dict[str, TimeSeriesData]) -> dict[str, pl.DataFram
         dropped = initial_len - len(df)
         if dropped > 0:
             log.warning(
-                f"Query '{query_id}': dropped {dropped} row(s) "
-                f"(NaN values or negative timestamps)."
+                f"Query '{query_id}': dropped {dropped} row(s) (NaN values or negative timestamps)."
             )
         result[query_id] = df
     return result
+
 
 def process_data(processor: Processor, df: pl.DataFrame) -> pl.DataFrame:
     """Processes the data using the provided processor."""
     return processor.process(df)
 
-def merge_dataframes(data: dict[str, pl.DataFrame]) -> pl.DataFrame:
-    """Merges multiple single-metric DataFrames into one wide DataFrame.
-
-    Uses ``join_asof`` with a 15-second tolerance and ``nearest`` strategy so
-    that Prometheus and Loki timestamps (which are almost never exactly aligned)
-    are matched to the closest neighbouring timestamp within one scrape interval.
-    """
-    dfs = [
-        df.rename({"value": query_id}).sort("timestamp")
-        for query_id, df in data.items()
-    ]
-
-    if not dfs:
-        return pl.DataFrame()
-
-    merged_df = dfs[0]
-    for df in dfs[1:]:
-        merged_df = merged_df.join_asof(
-            df,
-            on="timestamp",
-            strategy="nearest",
-            tolerance=15_000,
-        )
-
-    _dataframe_rows.add(len(merged_df), attributes=get_default_attributes())
-    return merged_df
 
 def push_to_blob(file: str) -> None:
     """Pushes data to blob storage."""
@@ -217,20 +197,27 @@ def push_to_blob(file: str) -> None:
     with open(file, "rb") as f:
         az.upload(f)
 
+
 async def main(force: bool) -> None:
     print_ascii_art()
     load_dotenv()
     log = get_logger("push_to_blob")
-    _pipeline_runs.add(1, attributes=get_default_attributes())
+    _pipeline_runs.add(1, attributes={**get_default_attributes(), "run_ts": f"{time.time()}"})
     if force:
-        log.warning("Force mod is enabled - Ignoring dataviz and pushing data directly to blob storage.")
+        log.warning(
+            "Force mod is enabled - Ignoring dataviz and pushing data directly to blob storage."
+        )
 
     grafana_dao = GrafanaDao()
-    
+
     log.info("Executing push_to_blob.py...")
-    log.info("This script pushes required data, metrics coming from Grafana, to azure storage for long-term storage...")
+    log.info(
+        "This script pushes required data, metrics coming from Grafana, to azure storage for long-term storage..."
+    )
     log.info("Metrics queried selected in configs/queries.yaml.")
-    log.info("Metrics selected are representative of the behavior of the system and should provide to ML models the necessary information to learn and predict on the system's behavior.")
+    log.info(
+        "Metrics selected are representative of the behavior of the system and should provide to ML models the necessary information to learn and predict on the system's behavior."
+    )
     log.info("=" * 50)
 
     # Step 1: Retrieve and convert data
@@ -239,23 +226,30 @@ async def main(force: bool) -> None:
     queries = read_queries_file()
     if not queries:
         log.error("No queries found in configs/queries.yaml")
+        _push_to_blob_failed.add(1, attributes=get_default_attributes())
         exit(1)
 
     from_time, to_time = get_previous_day_range()
 
     log.info("Retrieving data from grafana...")
     data = await retrieve_data(grafana_dao, queries, from_time, to_time)
-    df = convert_dataframes(data)
-    log.info("Data retrieval and conversion complete.")
+    log.info("Data retrieval complete.")
 
     # Step 3: Merging dataframes (merged on timestamp) and converting to parquet
-    log.info("Merging dataframes...")
+    log.info("Merging and resampling dataframes...")
 
     file = f"{OUTPUT_DIR}/output.parquet"
-    merged_df = merge_dataframes(df)
+    merged_df = merge_dataframes(data, metric=_dataframe_rows)
 
     log.info("Processing dataset...")
     merged_df = Processor.process(merged_df)
+
+    if Processor.is_null_present(merged_df) or Processor.is_nan_present(merged_df):
+        _push_to_blob_failed.add(1, attributes=get_default_attributes())
+        log.error(
+            "Null or NaN values detected in the merged dataframe after processing. Please check the data and processing steps."
+        )
+        exit(1)
 
     log.info("Saving merged dataframe to parquet...")
     merged_df = merged_df.sort("timestamp")
@@ -271,10 +265,9 @@ async def main(force: bool) -> None:
 
         confirm = input("Do you want to push data to blob storage? (y/N): ").strip().lower()
         if confirm != "y" and confirm != "yes" and confirm != "1":
-            Path(file).unlink()
             log.info("Push cancelled by user.")
             return
-    
+
     log.info("Pushing to Azure blob storage 📦...")
     try:
         push_to_blob(file=file)
@@ -284,7 +277,7 @@ async def main(force: bool) -> None:
         log.error(f"Failed to push to Azure blob storage: {e}")
         log.error("Exiting...")
         return
-    
+
     # Step 5: Cleanup local file
     log.info("🎉 Data successfully pushed to Azure blob storage.")
     try:
@@ -293,13 +286,16 @@ async def main(force: bool) -> None:
         log.error(f"Failed to delete local file: {e}")
     shutdown_telemetry()
 
+
 if __name__ == "__main__":
     """
     Run with --force to skip dataviz and push data directly to blob storage.
     Use it whithin CI/CD pipeline.
     """
     parser = argparse.ArgumentParser(description="Push data to Azure Blob Storage.")
-    parser.add_argument("--force", action="store_true", help="Force push even if data already exists.")
+    parser.add_argument(
+        "--force", action="store_true", help="Force push even if data already exists."
+    )
     args = parser.parse_args()
 
     asyncio.run(main(force=args.force))

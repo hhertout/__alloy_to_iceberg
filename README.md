@@ -2,7 +2,7 @@
   <img src=".github/assets/logo_2.png" alt="dl_obs logo" width="200"/>
 </p>
 
-<h1 align="center">Torch for observability</h1>
+<h1 align="center">Torch - Observability</h1>
 <div align="center">@Maintained by: #Author</div>
 
 ---

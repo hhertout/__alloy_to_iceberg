@@ -28,6 +28,7 @@ _FLAME_LINES = [
     r"                        *.",
 ]
 
+
 def print_ascii_art() -> None:
     n = len(_FLAME_LINES)
     print("\n")

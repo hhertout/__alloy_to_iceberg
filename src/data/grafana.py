@@ -22,6 +22,7 @@ _RETRY_STRATEGY = Retry(
     allowed_methods=["GET", "POST"],
 )
 
+
 class GrafanaDao:
     def __init__(self) -> None:
         self.url = os.getenv("GRAFANA_URL")
@@ -55,7 +56,7 @@ class GrafanaDao:
 
         for ds in datasources:
             if ds["name"] == datasource_name:
-                return ds["uid"]
+                return str(ds["uid"])
         raise ValueError(f"Datasource '{datasource_name}' not found in Grafana.")
 
     def query(

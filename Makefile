@@ -32,7 +32,7 @@ format:
 
 # Type checking
 typecheck:
-	uv run mypy dao dto azure src
+	uv run mypy scripts src
 
 # Run tests with coverage
 test:

@@ -16,6 +16,7 @@ class TimeSeriesData:
     query_id: str
     timestamps: list[int]
     values: list[float]
+    agg: str = "mean"
 
     def __post_init__(self) -> None:
         if len(self.timestamps) != len(self.values):
@@ -164,12 +165,13 @@ class GrafanaQueryResponse:
             return frames[0].data.values
         return []
 
-    def to_time_series(self, query_id: str, ref_id: str = "A") -> TimeSeriesData:
+    def to_time_series(self, query_id: str, ref_id: str = "A", agg: str = "mean") -> TimeSeriesData:
         """Extract a validated TimeSeriesData from the response.
 
         Args:
             query_id: Logical identifier for this query (used in error messages).
             ref_id: The Grafana refId to extract (default "A").
+            agg: Aggregation strategy for resampling ("mean", "sum", etc.).
 
         Returns:
             A validated TimeSeriesData instance.
@@ -180,7 +182,7 @@ class GrafanaQueryResponse:
         """
         frames = self.get_frames(ref_id)
         if not frames:
-            return TimeSeriesData(query_id=query_id, timestamps=[], values=[])
+            return TimeSeriesData(query_id=query_id, timestamps=[], values=[], agg=agg)
 
         raw = frames[0].data.values
         if len(raw) != 2:
@@ -191,4 +193,4 @@ class GrafanaQueryResponse:
 
         timestamps = [int(t) for t in raw[0]]
         values = [float(v) for v in raw[1]]
-        return TimeSeriesData(query_id=query_id, timestamps=timestamps, values=values)
+        return TimeSeriesData(query_id=query_id, timestamps=timestamps, values=values, agg=agg)

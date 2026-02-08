@@ -7,6 +7,7 @@ from typing import Literal
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 _logging_configured = False
 
+
 def setup_logging(
     level: LogLevel = "INFO",
     format_string: str | None = None,
@@ -52,6 +53,7 @@ def setup_logging(
     logger.setLevel(getattr(logging, level))
 
     return logger
+
 
 def get_logger(name: str) -> logging.Logger:
     """Get a logger for a specific module.
