@@ -195,7 +195,7 @@ def push_to_blob(file: str) -> None:
     """Pushes data to blob storage."""
     az = AzureInterface()
     with open(file, "rb") as f:
-        az.upload(f)
+        az.upload_chunk(f)
 
 
 async def main(force: bool) -> None:
