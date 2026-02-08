@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/assets/logo_2.png" alt="dl_obs logo" width="200"/>
+  <img src=".github/assets/logo.png" alt="dl_obs logo" width="400"/>
 </p>
 
 <h1 align="center">Torch - Observability</h1>

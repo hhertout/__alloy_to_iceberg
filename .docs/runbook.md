@@ -4,17 +4,17 @@
 
 The Azure Blob Storage upload uses `overwrite=True`. This means that **any blob with the same name is silently replaced** — no versioning, no backup, no warning.
 
-Because the blob naming convention is date-based (`chunk_obs-dataset_YYYYMMDD.parquet`), running the pipeline **multiple times on the same day will overwrite the previous chunk** with the latest data. Only the last run of the day is kept.
+Because the blob naming convention is date-based (`chunks/chunk_dataframe_YYYYMMDD.parquet`), running the pipeline **multiple times on the same day will overwrite the previous chunk** with the latest data. Only the last run of the day is kept.
 
 ### What to watch out for
 
 - **Multiple runs per day**: If the script is triggered more than once in a given day (manually or via CI/CD), the earlier run's data is lost. There is no append or deduplication logic — the file is fully replaced.
-- **File naming is tied to the current date** (`time.strftime("%Y%m%d")`), not to the data's time range. If the script runs at 00:01 on Feb 9th with a 24h window covering Feb 8th data, the blob will be named `chunk_obs-dataset_20260209.parquet`, not `20260208`.
+- **File naming is tied to the current date** (`time.strftime("%Y%m%d")`), not to the data's time range. The data covers the **previous day** (yesterday 00:00:00–23:59:59 UTC), but the filename uses today's date. If the script runs on Feb 9th, the blob will be named `chunk_dataframe_20260209.parquet`, even though it contains Feb 8th's data.
 - **No confirmation in force mode**: With `--force`, the overwrite happens without any user prompt.
 
 ## Grafana query performance
 
-The pipeline retrieves data over a **default time range of 24 hours** (`DEFAULT_TIME_WINDOW = 86400s`). Depending on the query, fetching a full day of data can be expensive and may result in slow responses or timeouts (the HTTP timeout is set to 30 seconds per query).
+The pipeline retrieves data for the **previous full day** (yesterday 00:00:00 to 23:59:59 UTC). Depending on the query, fetching a full day of data can be expensive and may result in slow responses or timeouts (the HTTP timeout is set to 30 seconds per query).
 
 ### Before adding a new query
 

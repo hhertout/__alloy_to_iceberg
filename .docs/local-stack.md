@@ -9,19 +9,19 @@ This document describes how to set up and use the local observability stack for 
 │                         Docker Compose                          │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   ┌─────────┐      metrics      ┌────────────┐                 │
-│   │  Alloy  │ ─────────────────►│ Prometheus │                 │
-│   │ :12345  │                   │   :9090    │                 │
-│   └────┬────┘                   └─────┬──────┘                 │
-│        │                              │                         │
-│        │ logs                         │                         │
-│        ▼                              │                         │
-│   ┌─────────┐                         │                         │
-│   │  Loki   │                         │                         │
-│   │ :3100   │                         │                         │
-│   └────┬────┘                         │                         │
-│        │                              │                         │
-│        └──────────┬───────────────────┘                         │
+│   ┌─────────┐      metrics      ┌────────────┐                  │
+│   │  Alloy  │ ─────────────────►│ Prometheus │                  │
+│   │ :12345  │                   │   :9090    │                  │
+│   └────┬────┘                   └─────┬──────┘                  │
+│        │                              ▲                         │
+│        │ logs               metrics   │                         │
+│        ▼                    (scrape)  │                         │
+│   ┌─────────┐              ┌──────────┴──┐                      │
+│   │  Loki   │              │  cAdvisor   │                      │
+│   │ :3100   │              │   :8080     │                      │
+│   └────┬────┘              └─────────────┘                      │
+│        │                         │                              │
+│        └──────────┬──────────────┘                              │
 │                   ▼                                             │
 │             ┌──────────┐                                        │
 │             │ Grafana  │                                        │
@@ -39,6 +39,7 @@ This document describes how to set up and use the local observability stack for 
 | Alloy | 12345 | Telemetry collector | http://localhost:12345 |
 | Prometheus | 9090 | Metrics database | http://localhost:9090 |
 | Loki | 3100 | Logs database | - |
+| cAdvisor | 8080 | Container metrics exporter | http://localhost:8080 |
 
 ## Quick Start
 
@@ -102,6 +103,11 @@ prometheus.scrape "alloy_internal" {
 
 - **Remote write receiver**: Enabled to receive metrics from Alloy
 - **Self-scraping**: Scrapes itself for monitoring
+- **cAdvisor scraping**: Scrapes container-level metrics from cAdvisor
+
+### cAdvisor
+
+Exposes container resource usage metrics (CPU, memory, network, filesystem) for all running Docker containers. Prometheus scrapes it on the `cadvisor` job. Metrics are prefixed with `container_` (e.g. `container_cpu_usage_seconds_total`, `container_memory_usage_bytes`).
 
 ### Loki (`.docker/loki.yaml`)
 

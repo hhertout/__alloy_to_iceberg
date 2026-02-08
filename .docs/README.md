@@ -20,6 +20,7 @@ make setup
 docker compose up -d
 
 # Validate code before pushing
+make fix
 make validate
 ```
 
