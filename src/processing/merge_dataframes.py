@@ -1,12 +1,12 @@
 import polars as pl
-from opentelemetry.metrics import UpDownCounter
+from opentelemetry.metrics import NoOpObservableGauge
 
 from configs.constants import DEFAULT_AGG_INTERVAL_MS
 from src.data.grafana_dto import TimeSeriesData
 from utils.telemetry import get_default_attributes
 
 
-def merge_dataframes(data: dict[str, TimeSeriesData], metric: UpDownCounter) -> pl.DataFrame:
+def merge_dataframes(data: dict[str, TimeSeriesData], metric: NoOpObservableGauge) -> pl.DataFrame:
     """Merges multiple single-metric DataFrames into one wide DataFrame.
 
     Builds a complete timeline from every source's timestamps, joins each
@@ -27,7 +27,7 @@ def merge_dataframes(data: dict[str, TimeSeriesData], metric: UpDownCounter) -> 
     agg_exprs = _get_agg_expr(agg_map)
     merged_df = _to_agg_dataframe(merged_df, agg_exprs)
 
-    metric.add(len(merged_df), attributes=get_default_attributes())
+    metric.set(len(merged_df), attributes=get_default_attributes())
     return merged_df
 
 

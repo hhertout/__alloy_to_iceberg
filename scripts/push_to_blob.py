@@ -43,7 +43,7 @@ _query_duration = _meter.create_histogram(
     description="Duration of individual query fetches in seconds",
     unit="s",
 )
-_dataframe_rows = _meter.create_up_down_counter(
+_dataframe_rows = _meter.create_gauge(
     "ml.dataframe.rows",
     description="Number of rows in the merged DataFrame",
 )

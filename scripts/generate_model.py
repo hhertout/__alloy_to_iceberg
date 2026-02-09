@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 from configs.constants import TRAINING_TIMEWINDOW_DAYS
 from src.data.azure import AzureInterface
+from src.features.v1 import FeaturesEngineeringV1
 from utils.askii_art import print_ascii_art
 from utils.logging import get_logger
 from utils.telemetry import get_default_attributes, get_meter
@@ -16,7 +17,7 @@ _pipeline_runs = _meter.create_counter(
     description="Number of pipeline runs",
 )
 
-_dataframe_rows = _meter.create_up_down_counter(
+_dataframe_rows = _meter.create_gauge(
     "ml.training.dataframe.rows",
     description="Number of rows in the merged DataFrame",
 )
@@ -65,6 +66,9 @@ def main() -> None:
     _dataframe_rows.add(df.height, attributes=get_default_attributes())
 
     log.info("Feature engineering...")
+    fe = FeaturesEngineeringV1()
+    df = fe.genrate_features(df)
+
     log.info("Training model...")
     log.info("Saving model to Azure Storage...")
     log.info("Model generation process completed successfully.")

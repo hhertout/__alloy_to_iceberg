@@ -1,6 +1,7 @@
-from utils.logging import get_logger
 import polars as pl
 
+from configs.get_queries_id import get_queries_id
+from utils.logging import get_logger
 from utils.telemetry import get_default_attributes, get_meter
 
 
@@ -27,10 +28,14 @@ class Processor:
             description="Number of filtered rows",
         )
 
+        cols = get_queries_id()
+
         # process
-        df = Processor.__remove_nans(df)
-        df = Processor.__filter_nulls_for(df, "alloy_queue_length")
-        df = Processor.__fill_nulls_for(df, "loki_request_rate")
+        df = (
+            df.pipe(Processor.__remove_nans)
+            .pipe(Processor.__filter_nulls_for, cols.alloy_queue_length)
+            .pipe(Processor.__fill_nulls_for, cols.loki_request_rate)
+        )
 
         # post process
         filtered_count = initial_count - df.height
@@ -66,7 +71,7 @@ class Processor:
         if filtered_count > 0:
             log = get_logger("push_to_blob")
             log.warning(f"Dropped {filtered_count} rows due to null values in column '{col}'")
-        
+
         return df
 
     @staticmethod

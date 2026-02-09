@@ -24,6 +24,10 @@ _RETRY_STRATEGY = Retry(
 
 
 class GrafanaDao:
+    """
+    Data Access Object for interacting with Grafana's API.
+    """
+
     def __init__(self) -> None:
         self.url = os.getenv("GRAFANA_URL")
         self.api_key = os.getenv("GRAFANA_SA_TOKEN")
@@ -67,22 +71,7 @@ class GrafanaDao:
         from_time: float | None = None,
         to_time: float | None = None,
     ) -> GrafanaQueryResponse:
-        """Executes a query against Grafana's unified query API.
-
-        Args:
-            kind: The type of datasource (prometheus, loki, tempo).
-            datasource_uid: The UID of the datasource in Grafana.
-            expr: The query expression (PromQL, LogQL, or TraceQL).
-            from_time: Start time as Unix timestamp (seconds). Defaults to now - 1 hour.
-            to_time: End time as Unix timestamp (seconds). Defaults to now.
-
-        Returns:
-            GrafanaQueryResponse containing the query results.
-
-        Raises:
-            ValueError: If an unsupported datasource kind is provided.
-            requests.HTTPError: If the API request fails.
-        """
+        """Executes a query against `Grafana`'s unified query API."""
         if to_time is None:
             to_time = time.time()
         if from_time is None:
