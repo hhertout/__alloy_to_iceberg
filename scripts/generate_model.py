@@ -63,11 +63,11 @@ def main() -> None:
     log.info("Retrieving data chunks from Azure Storage...")
     chunks_bytes = get_az_chunks()
     df = to_dataframe(chunks_bytes)
-    _dataframe_rows.add(df.height, attributes=get_default_attributes())
+    _dataframe_rows.set(df.height, attributes=get_default_attributes())
 
     log.info("Feature engineering...")
     fe = FeaturesEngineeringV1()
-    df = fe.genrate_features(df)
+    df = fe.generate_features(df)
 
     log.info("Training model...")
     log.info("Saving model to Azure Storage...")
