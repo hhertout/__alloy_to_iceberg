@@ -69,6 +69,8 @@ def main() -> None:
     fe = FeaturesEngineeringV1()
     df = fe.generate_features(df)
 
+    print(df.head())
+
     log.info("Training model...")
     log.info("Saving model to Azure Storage...")
     log.info("Model generation process completed successfully.")

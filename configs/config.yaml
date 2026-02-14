@@ -7,9 +7,10 @@ grafana:
   url: http://localhost:3000
   api_key: $GRAFANA_SA_TOKEN
 
-# limits:
+limits:
     # Number of days to query data and push to storage (yesterday + limits.offset_days). 
-#   offset_days: 0 # defaults 0
+  # offset_days: 0 # defaults 0
+  training_window_days: 2 # defaults 90
 
 storage:
   # Amazon S3 configuration

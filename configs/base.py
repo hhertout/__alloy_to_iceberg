@@ -13,6 +13,7 @@ from configs.constants import (
     DEFAULT_S3_FILE_IDENTIFIER,
     DEFAULT_S3_FILE_PREFIX,
     DEFAULTS_LIMITS_OFFSET_DAYS,
+    DEFAULTS_LIMITS_TRAINING_WINDOW_DAYS,
 )
 
 _DEFAULT_OTLP_ENDPOINT = "http://localhost:4317"
@@ -75,6 +76,7 @@ class AzureSettings(BaseModel):
 
 class LimitsSettings(BaseModel):
     offset_days: int = DEFAULTS_LIMITS_OFFSET_DAYS
+    training_window_days: int = DEFAULTS_LIMITS_TRAINING_WINDOW_DAYS
 
 
 class S3Settings(BaseModel):
@@ -138,8 +140,11 @@ def load_limits_settings(config: dict[str, Any] | None = None) -> LimitsSettings
         limits_config = config
 
     offset_days = limits_config.get("offset_days", DEFAULTS_LIMITS_OFFSET_DAYS)
+    training_window_days = limits_config.get(
+        "training_window_days", DEFAULTS_LIMITS_TRAINING_WINDOW_DAYS
+    )
 
-    return LimitsSettings(offset_days=offset_days)
+    return LimitsSettings(offset_days=offset_days, training_window_days=training_window_days)
 
 
 def load_grafana_settings(config: dict[str, Any] | None = None) -> GrafanaSettings:
