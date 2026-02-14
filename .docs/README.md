@@ -1,4 +1,4 @@
-# Internal Documentation
+# Internal documentation
 
 ## Index
 
@@ -10,9 +10,9 @@
 | [runbook.md](./runbook.md) | Operational procedures |
 | [qa.md](./qa.md) | Quality assurance |
 
-## Quick Start
+## Quick start
 
-```bash
+```sh
 # Full setup (deps + pre-commit)
 make setup
 
@@ -24,7 +24,7 @@ make fix
 make validate
 ```
 
-## Local Links
+## Local links
 
 | Service | URL | Credentials |
 |---------|-----|-------------|

@@ -1,14 +1,12 @@
-# Developer Guide
-
-## Introduction
+# Developer guide
 
 This document provides an overview of the development process, best practices, and tooling for this project.
 
-## Package Manager (uv)
+## Package manager (uv)
 
 This project uses [uv](https://docs.astral.sh/uv/) as build tool and package manager.
 
-```bash
+```sh
 # Install dependencies
 uv sync --dev
 
@@ -24,7 +22,7 @@ uv run <command>
 
 Refer to [uv documentation](https://docs.astral.sh/uv/) for more details.
 
-## Project Structure
+## Project structure
 
 ```
 dl_obs/
@@ -62,12 +60,13 @@ dl_obs/
 └── py.typed                    # PEP 561 marker (typed package)
 ```
 
-## Development Tools
+## Development tools
 
-### Ruff (Linter + Formatter)
-Replaces flake8, isort, and black in a single tool.
+### Ruff (linter + formatter)
 
-```bash
+Ruff replaces flake8, isort, and black in a single tool.
+
+```sh
 # Check code
 uv run ruff check .
 
@@ -83,10 +82,11 @@ Configuration in `pyproject.toml`:
 - Line length: 100 characters
 - Target: Python 3.12
 
-### Mypy (Type Checking)
-Statically checks type annotations.
+### Mypy (type checking)
 
-```bash
+Mypy statically checks type annotations.
+
+```sh
 uv run mypy dao dto azure
 ```
 
@@ -95,10 +95,11 @@ Configuration:
 - `warn_return_any`: Warns if a function returns `Any`
 - `ignore_missing_imports`: Ignores imports without stubs
 
-### Pytest (Tests)
-Testing framework with code coverage.
+### Pytest (tests)
 
-```bash
+Pytest is the testing framework, with code coverage support.
+
+```sh
 # Run tests
 uv run pytest
 
@@ -115,20 +116,27 @@ Configuration:
 - Function pattern: `test_*`
 - Coverage threshold: 50% (increase progressively)
 
-## Code Conventions
+## Code conventions
 
 ### Naming
-- **Classes**: PascalCase (`GrafanaDao`, `GrafanaQueryResponse`)
-- **Functions/methods**: snake_case (`get_frames`, `upload_blob`)
-- **Constants**: UPPER_SNAKE_CASE (`DEFAULT_TIME_WINDOW`)
-- **Files**: snake_case (`grafana.py`, `test_dto_grafana.py`)
+
+Follow these naming conventions:
+
+- **Classes:** PascalCase (`GrafanaDao`, `GrafanaQueryResponse`).
+- **Functions/methods:** snake_case (`get_frames`, `upload_blob`).
+- **Constants:** UPPER_SNAKE_CASE (`DEFAULT_TIME_WINDOW`).
+- **Files:** snake_case (`grafana.py`, `test_dto_grafana.py`).
 
 ### Architecture
-- **DAO**: Handles API calls, returns DTOs
-- **DTO**: Immutable data structures with `@dataclass`
-- **Tests**: One file per module (`test_<module>.py`)
 
-### Type Hints
+The codebase follows these patterns:
+
+- **DAO:** Handles API calls and returns DTOs.
+- **DTO:** Immutable data structures with `@dataclass`.
+- **Tests:** One file per module (`test_<module>.py`).
+
+### Type hints
+
 All public functions must have type annotations:
 
 ```python
@@ -160,33 +168,39 @@ def upload(self, blob_name: str, data: bytes) -> BlobClient:
     """
 ```
 
-## Pre-commit Hooks
+## Pre-commit hooks
 
 Pre-commit hooks run automatically before each commit.
 
 ### Installation (once)
-```bash
+```sh
 make setup
 ```
 
-### Configured Hooks
-- **ruff**: Linting + auto-fix
-- **ruff-format**: Automatic formatting
-- **mypy**: Type checking
-- **trailing-whitespace**: Removes trailing whitespace
-- **end-of-file-fixer**: Adds newline at end of file
-- **check-yaml**: Validates YAML syntax
-- **check-added-large-files**: Blocks files > 1MB
-- **detect-private-key**: Blocks private keys
+### Configured hooks
+
+The following hooks run on every commit:
+
+- **ruff:** Linting + auto-fix
+- **ruff-format:** Automatic formatting.
+- **mypy:** Type checking.
+- **trailing-whitespace:** Removes trailing whitespace.
+- **end-of-file-fixer:** Adds newline at end of file.
+- **check-yaml:** Validates YAML syntax.
+- **check-added-large-files:** Blocks files > 1MB.
+- **detect-private-key:** Blocks private keys.
 
 ### Bypass (if needed)
-```bash
+
+To skip hooks for a specific commit:
+
+```sh
 git commit --no-verify -m "message"
 ```
 
-## Custom Exceptions
+## Custom exceptions
 
-Use exceptions from `utils.exceptions` module:
+Use exceptions from the `utils.exceptions` module:
 
 ```python
 from utils.exceptions import ConfigurationError, GrafanaQueryError
@@ -233,10 +247,10 @@ logger.warning("Rate limit approaching")
 logger.error("Failed to connect", exc_info=True)
 ```
 
-## Development Workflow
+## Development workflow
 
 ### Before each commit
-```bash
+```sh
 make validate
 ```
 
@@ -247,17 +261,19 @@ This command runs:
 4. `pytest --cov` - Runs tests with coverage
 
 ### Adding a new feature
+
+Follow these steps to add a new feature:
 1. Create DTOs if needed in `dto/`
 2. Implement DAO in `dao/`
 3. Write tests in `tests/test_<module>.py`
 4. Run `make validate`
 5. Commit and push
 
-## Environment Variables
+## Environment variables
 
 Create a `.env` file (never committed):
 
-```bash
+```sh
 # Grafana
 GRAFANA_URL=https://your-grafana-instance.com
 GRAFANA_SA_TOKEN=your-service-account-token
@@ -286,9 +302,9 @@ jobs:
       - run: make validate
 ```
 
-## Related Documentation
+## Related documentation
 
-- [Local Development Stack](./local-stack.md) - Docker Compose setup for testing
+- [Local development stack](./local-stack.md) - Docker Compose setup for testing
 - [Architecture](./architecture.md) - System architecture overview
-- [Quality Assurance](./qa.md) - QA processes and standards
+- [Quality assurance](./qa.md) - QA processes and standards
 - [Runbook](./runbook.md) - Operational procedures

@@ -1,4 +1,4 @@
-# Local Development Stack
+# Local development stack
 
 This document describes how to set up and use the local observability stack for testing and debugging the project.
 
@@ -41,16 +41,16 @@ This document describes how to set up and use the local observability stack for 
 | Loki | 3100 | Logs database | - |
 | cAdvisor | 8080 | Container metrics exporter | http://localhost:8080 |
 
-## Quick Start
+## Quick start
 
-### Prerequisites
+Before you begin, ensure you have the following:
 
 - Docker & Docker Compose
 - Make (optional)
 
 ### Start the stack
 
-```bash
+```sh
 # Start all services
 docker compose up -d
 
@@ -66,7 +66,7 @@ docker compose logs -f alloy
 
 ### Stop the stack
 
-```bash
+```sh
 # Stop without deleting data
 docker compose down
 
@@ -74,14 +74,14 @@ docker compose down
 docker compose down -v
 ```
 
-## Service Configuration
+## Service configuration
 
 ### Alloy (`.docker/conf.alloy`)
 
 Alloy is configured for:
-- **Self-monitoring**: Scrapes its own metrics via `prometheus.exporter.self`
-- **Logs**: Sends internal logs to Loki via the `logging` block
-- **Remote write**: Pushes metrics to Prometheus
+- **Self-monitoring:** Scrapes its own metrics via `prometheus.exporter.self`.
+- **Logs:** Sends internal logs to Loki via the `logging` block.
+- **Remote write:** Pushes metrics to Prometheus.
 
 ```alloy
 // Logs → Loki
@@ -101,9 +101,10 @@ prometheus.scrape "alloy_internal" {
 
 ### Prometheus (`.docker/prometheus.yml`)
 
-- **Remote write receiver**: Enabled to receive metrics from Alloy
-- **Self-scraping**: Scrapes itself for monitoring
-- **cAdvisor scraping**: Scrapes container-level metrics from cAdvisor
+Prometheus is configured for:
+- **Remote write receiver:** Enabled to receive metrics from Alloy.
+- **Self-scraping:** Scrapes itself for monitoring.
+- **cAdvisor scraping:** Scrapes container-level metrics from cAdvisor.
 
 ### cAdvisor
 
@@ -111,12 +112,15 @@ Exposes container resource usage metrics (CPU, memory, network, filesystem) for 
 
 ### Loki (`.docker/loki.yaml`)
 
-- **Mode**: Standalone (monolithic)
-- **Storage**: Local filesystem
-- **Schema**: v13 (TSDB)
-- **Auth**: Disabled for local development
+Loki is configured for:
+- **Mode:** Standalone (monolithic).
+- **Storage:** Local filesystem.
+- **Schema:** v13 (TSDB).
+- **Auth:** Disabled for local development.
 
-## Accessing Interfaces
+## Accessing interfaces
+
+You can access the following service UIs.
 
 ### Grafana
 
@@ -158,7 +162,9 @@ Exposes container resource usage metrics (CPU, memory, network, filesystem) for 
   - `/ready` - Health check
   - `/graph` - Pipeline debug UI
 
-## Test Queries
+## Test queries
+
+You can use the following queries to verify the stack is working.
 
 ### Prometheus (metrics)
 
@@ -193,7 +199,7 @@ sum by (level) (count_over_time({job="alloy"} | json [5m]))
 
 ### Verify Alloy is working
 
-```bash
+```sh
 # Health check
 curl http://localhost:12345/ready
 
@@ -206,7 +212,7 @@ curl http://localhost:12345/-/config
 
 ### Verify Prometheus
 
-```bash
+```sh
 # Health check
 curl http://localhost:9090/-/healthy
 
@@ -219,7 +225,7 @@ curl 'http://localhost:9090/api/v1/query?query=up' | jq .
 
 ### Verify Loki
 
-```bash
+```sh
 # Health check
 curl http://localhost:3100/ready
 
@@ -232,10 +238,10 @@ curl -G http://localhost:3100/loki/api/v1/query_range \
   --data-urlencode 'limit=10' | jq .
 ```
 
-### Common Issues
+### Common issues
 
 #### Alloy won't start
-```bash
+```sh
 # Check config syntax
 docker compose exec alloy alloy fmt /etc/alloy/conf.alloy
 
@@ -244,7 +250,7 @@ docker compose logs alloy
 ```
 
 #### Prometheus not receiving metrics
-```bash
+```sh
 # Check remote write is enabled
 docker compose logs prometheus | grep -i remote
 
@@ -253,7 +259,7 @@ docker compose logs prometheus | grep -i remote
 ```
 
 #### Loki not receiving logs
-```bash
+```sh
 # Check connection
 docker compose exec alloy wget -q -O- http://loki:3100/ready
 
@@ -261,7 +267,9 @@ docker compose exec alloy wget -q -O- http://loki:3100/ready
 docker compose logs loki | grep -i error
 ```
 
-## Python Code Integration
+## Python code integration
+
+You can test the Grafana client against the local stack.
 
 ### Testing GrafanaDao
 
@@ -284,20 +292,20 @@ response = dao.query(
 print(response.get_values())
 ```
 
-### Creating a Grafana Service Account
+### Creating a Grafana service account
 
 1. Grafana → Administration → Service accounts
 2. Add service account → Name: "dev-local"
 3. Add token → Copy the token
 4. Add to `.env`:
-   ```bash
+   ```sh
    GRAFANA_URL=http://localhost:3000
    GRAFANA_SA_TOKEN=<token>
    ```
 
-## Volumes and Persistence
+## Volumes and persistence
 
-Data is persisted in Docker volumes:
+Docker volumes persist data across restarts:
 
 | Volume | Service | Contents |
 |--------|---------|----------|
@@ -305,15 +313,15 @@ Data is persisted in Docker volumes:
 | `prometheus_data` | Prometheus | Metrics TSDB |
 | `loki_data` | Loki | Log chunks and index |
 
-### Full Reset
+### Full reset
 
-```bash
+```sh
 # Delete everything and start fresh
 docker compose down -v
 docker compose up -d
 ```
 
-## Extending the Stack
+## Extending the stack
 
 ### Adding a service to monitor
 
@@ -329,7 +337,7 @@ prometheus.scrape "my_service" {
 ```
 
 2. Restart Alloy:
-```bash
+```sh
 docker compose restart alloy
 ```
 
