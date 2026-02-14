@@ -33,5 +33,17 @@ class AzureUploadError(AzureError):
     """Raised when upload to Azure Blob Storage fails."""
 
 
+class S3Error(DlObsError):
+    """Base exception for S3-related errors."""
+
+
+class S3ConnectionError(S3Error):
+    """Raised when connection to S3 fails."""
+
+
+class S3UploadError(S3Error):
+    """Raised when upload to S3 fails."""
+
+
 class DataValidationError(DlObsError):
     """Raised when data does not match the expected schema or format."""

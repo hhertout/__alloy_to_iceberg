@@ -1,3 +1,6 @@
+# This file defines the queries to be executed against the data sources.
+# IMPORTANT: The query must returns only one time series ! Otherwise, the system will only use the first one.
+#
 # <ds_type>:
 #   <ds_name>:
 #     queries:
@@ -9,7 +12,9 @@ prometheus:
     - id: alloy_queue_length
       agg: mean
       query: "sum(avg_over_time(scrape_duration_seconds{job=\"integrations/self\"}[1m]))"
-
+    - id: cpu_usage
+      agg: mean
+      query: sum(rate(container_cpu_usage_seconds_total{}[1m]))
 loki:
   Loki:
     - id: loki_request_rate

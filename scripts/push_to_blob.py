@@ -5,24 +5,22 @@ from pathlib import Path
 from typing import Any
 
 import polars as pl
-import yaml
 from dotenv import load_dotenv
 
 from configs.constants import OUTPUT_DIR, DatasourceKind
 from src.data.azure import AzureInterface
 from src.data.grafana import GrafanaDao
 from src.data.grafana_dto import TimeSeriesData
+from src.data.s3 import S3Interface
 from src.dataviz.quick_preview import visualize_df
 from src.processing.data_processing import Processor
 from src.processing.merge_dataframes import merge_dataframes
 from utils import get_logger, get_meter, shutdown_telemetry
 from utils.askii_art import print_ascii_art
 from utils.exceptions import DataValidationError
+from utils.queries import extract_loki_queries, extract_promtheus_queries, read_queries_file
 from utils.telemetry import get_default_attributes
 from utils.timerange import get_previous_day_range
-
-CONFIG_PROM_KEY = "prometheus"
-CONFIG_LOKI_KEY = "loki"
 
 # ── OTel custom metrics ──
 _meter = get_meter("ml_obs.pipeline")
@@ -52,24 +50,6 @@ _push_to_blob_failed = _meter.create_counter(
     "ml.blob.push.failed",
     description="Number of failed push to blob operations",
 )
-
-
-def read_queries_file(config_path: str = "configs/queries.yaml") -> Any:
-    with open(config_path) as f:
-        queries = yaml.safe_load(f)
-        return queries
-
-
-def extract_promtheus_queries(queries: Any) -> dict[str, list[dict[str, str]]]:
-    """Extracts Prometheus queries from the configuration."""
-    result: dict[str, list[dict[str, str]]] = queries.get(CONFIG_PROM_KEY, {})
-    return result
-
-
-def extract_loki_queries(queries: Any) -> dict[str, list[dict[str, str]]]:
-    """Extracts Loki queries from the configuration."""
-    result: dict[str, list[dict[str, str]]] = queries.get(CONFIG_LOKI_KEY, {})
-    return result
 
 
 async def _fetch_query(
@@ -158,58 +138,42 @@ async def retrieve_data(
     return {**prom_data, **loki_data}
 
 
-def convert_dataframes(data: dict[str, TimeSeriesData]) -> dict[str, pl.DataFrame]:
-    """Converts validated TimeSeriesData to Polars DataFrames.
-
-    Filters out rows with NaN values or negative timestamps and logs
-    warnings when rows are dropped.
-    """
-    log = get_logger("push_to_blob")
-    result: dict[str, pl.DataFrame] = {}
-    for query_id, ts_data in data.items():
-        if ts_data.is_empty:
-            log.warning(f"Query '{query_id}' returned no data. Skipping.")
-            continue
-        df = pl.DataFrame(
-            {"timestamp": ts_data.timestamps, "value": ts_data.values},
-            schema={"timestamp": pl.Int64, "value": pl.Float64},
-        )
-        initial_len = len(df)
-        df = df.filter(pl.col("value").is_not_nan())
-        df = df.filter(pl.col("timestamp") > 0)
-        dropped = initial_len - len(df)
-        if dropped > 0:
-            log.warning(
-                f"Query '{query_id}': dropped {dropped} row(s) (NaN values or negative timestamps)."
-            )
-        result[query_id] = df
-    return result
-
-
 def process_data(processor: Processor, df: pl.DataFrame) -> pl.DataFrame:
     """Processes the data using the provided processor."""
     return processor.process(df)
 
 
+def get_storage_type(storage: str) -> str:
+    """Return normalized storage type."""
+    storage_type = storage.strip().lower()
+    if storage_type not in {"azure", "s3"}:
+        raise ValueError(f"Unsupported storage backend: {storage}")
+    return storage_type
+
+
 def push_to_blob(file: str) -> None:
-    """Pushes data to blob storage."""
-    az = AzureInterface()
-    with open(file, "rb") as f:
-        az.upload_chunk(f)
+    """Pushes data to Azure Blob Storage."""
+    with open(file, "rb") as payload:
+        AzureInterface().upload_chunk(payload)
 
 
-async def main(force: bool) -> None:
+def push_to_bucket(file: str) -> None:
+    """Pushes data to AWS S3 bucket."""
+    with open(file, "rb") as payload:
+        S3Interface().upload_chunk(payload)
+
+
+async def main(skip_validation: bool, storage: str) -> None:
     print_ascii_art()
     load_dotenv()
     log = get_logger("push_to_blob")
     _pipeline_runs.add(1, attributes={**get_default_attributes(), "run_ts": f"{time.time()}"})
-    if force:
+    if skip_validation:
         log.warning(
-            "Force mod is enabled - Ignoring dataviz and pushing data directly to blob storage."
+            "Skip validation mode is enabled - Ignoring dataviz and pushing data directly to blob storage."
         )
 
     grafana_dao = GrafanaDao()
-
     log.info("Executing push_to_blob.py...")
     log.info(
         "This script pushes required data, metrics coming from Grafana, to azure storage for long-term storage..."
@@ -256,9 +220,9 @@ async def main(force: bool) -> None:
     merged_df.write_parquet(file, compression="snappy")
 
     # Step 4: Push to Azure Blob Storage
-    # If not in force mode, visualize the data and ask for confirmation before pushing to blob storage.
+    # If not in skip_validation mode, visualize the data and ask for confirmation before pushing to blob storage.
     # This is a safety measure to prevent pushing bad data to blob storage and also to provide a quick preview of the data being pushed.
-    if not force:
+    if not skip_validation:
         log.info("Visualizing data before pushing to blob storage...")
         print(merged_df.head())
         visualize_df(merged_df, "Merged DataFrame", merged_df.columns[1:])
@@ -268,18 +232,22 @@ async def main(force: bool) -> None:
             log.info("Push cancelled by user.")
             return
 
-    log.info("Pushing to Azure blob storage 📦...")
+    storage_type = get_storage_type(storage)
+    log.info(f"Pushing data to {storage_type} storage 📦...")
     try:
-        push_to_blob(file=file)
+        if storage_type == "azure":
+            push_to_blob(file=file)
+        else:
+            push_to_bucket(file=file)
     except Exception as e:
         _push_to_blob_failed.add(1, attributes=get_default_attributes())
         Path(file).unlink()
-        log.error(f"Failed to push to Azure blob storage: {e}")
+        log.error(f"Failed to push data to {storage_type} storage: {e}")
         log.error("Exiting...")
         return
 
     # Step 5: Cleanup local file
-    log.info("🎉 Data successfully pushed to Azure blob storage.")
+    log.info(f"🎉 Data successfully pushed to {storage_type} storage.")
     try:
         Path(file).unlink()
     except Exception as e:
@@ -289,13 +257,21 @@ async def main(force: bool) -> None:
 
 if __name__ == "__main__":
     """
-    Run with --force to skip dataviz and push data directly to blob storage.
-    Use it whithin CI/CD pipeline.
+    Run with --skip-validation to skip dataviz and push data directly to blob storage.
+    Use it within CI/CD pipeline.
     """
-    parser = argparse.ArgumentParser(description="Push data to Azure Blob Storage.")
+    parser = argparse.ArgumentParser(description="Push data to configured storage backend.")
     parser.add_argument(
-        "--force", action="store_true", help="Force push even if data already exists."
+        "--skip-validation",
+        action="store_true",
+        help="Skip data visualization and push data directly to blob storage.",
+    )
+    parser.add_argument(
+        "--storage",
+        choices=["azure", "s3"],
+        default="azure",
+        help="Storage backend to use for upload.",
     )
     args = parser.parse_args()
 
-    asyncio.run(main(force=args.force))
+    asyncio.run(main(skip_validation=args.skip_validation, storage=args.storage))

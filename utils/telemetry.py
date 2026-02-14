@@ -1,7 +1,6 @@
 """OpenTelemetry setup for logs and metrics export via OTLP."""
 
 import logging
-import os
 
 from opentelemetry import metrics
 from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
@@ -12,15 +11,11 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 
+from configs.base import load_telemetry_settings
+
 _logger_provider: LoggerProvider | None = None
 _meter_provider: MeterProvider | None = None
 _default_attributes: dict[str, str] = {}
-
-_DEFAULT_ENDPOINT = "http://localhost:4317"
-_DEFAULT_ENV = "development"
-_SERVICE_NAME = "dl-obs"
-_SERVICE_NAMESPACE = "dl-obs"
-_SERVICE_VERSION = "0.1.0"
 
 
 def setup_telemetry(
@@ -29,7 +24,6 @@ def setup_telemetry(
     """Initialize OpenTelemetry log and metric providers with OTLP export.
 
     Args:
-        service_name: The service name for OTel resource attributes.
         otlp_endpoint: OTLP gRPC endpoint. Falls back to
             ``OTEL_EXPORTER_OTLP_ENDPOINT`` env var, then ``http://localhost:4317``.
 
@@ -38,39 +32,33 @@ def setup_telemetry(
     """
     global _logger_provider, _meter_provider, _default_attributes
 
-    if otlp_endpoint is None:
-        otlp_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", _DEFAULT_ENDPOINT)
-
-    env = os.environ.get("OTEL_ENV", _DEFAULT_ENV)
-    service_name = os.environ.get("OTEL_SERVICE_NAME", _SERVICE_NAME)
-    service_namespace = os.environ.get("OTEL_SERVICE_NAMESPACE", _SERVICE_NAMESPACE)
-    service_version = os.environ.get("OTEL_SERVICE_VERSION", _SERVICE_VERSION)
+    settings = load_telemetry_settings(otlp_endpoint=otlp_endpoint)
 
     # Silence the OTLP exporter's retry/failure logs when the collector is unreachable.
     logging.getLogger("opentelemetry.exporter.otlp.proto.grpc.exporter").setLevel(logging.CRITICAL)
 
     resource = Resource.create(
         {
-            "service.name": service_name,
-            "service.version": service_version,
-            "deployment.environment": env,
+            "service.name": settings.service_name,
+            "service.version": settings.service_version,
+            "deployment.environment": settings.env,
         }
     )
 
     _default_attributes = {
-        "service.name": service_name,
-        "service.version": service_version,
-        "service.namespace": service_namespace,
-        "environment": env,
+        "service.name": settings.service_name,
+        "service.version": settings.service_version,
+        "service.namespace": settings.service_namespace,
+        "environment": settings.env,
     }
 
     # --- Logs ---
-    log_exporter = OTLPLogExporter(endpoint=otlp_endpoint, insecure=True)
+    log_exporter = OTLPLogExporter(endpoint=settings.otlp_endpoint, insecure=True)
     _logger_provider = LoggerProvider(resource=resource)
     _logger_provider.add_log_record_processor(BatchLogRecordProcessor(log_exporter))
 
     # --- Metrics ---
-    metric_exporter = OTLPMetricExporter(endpoint=otlp_endpoint, insecure=True)
+    metric_exporter = OTLPMetricExporter(endpoint=settings.otlp_endpoint, insecure=True)
     metric_reader = PeriodicExportingMetricReader(metric_exporter, export_interval_millis=15000)
     _meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
     metrics.set_meter_provider(_meter_provider)

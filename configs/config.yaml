@@ -1,0 +1,39 @@
+log:
+  # Logging level (e.g., debug, info, warn, error)
+  level: info
+
+storage:
+  # Amazon S3 configuration
+  # s3:
+  #   bucket_name: $AWS_S3_BUCKET_NAME
+  #   region_name: $AWS_S3_REGION
+  #   endpoint_url: $AWS_S3_ENDPOINT_URL
+  #   aws_access_key_id: $AWS_ACCESS_KEY_ID
+  #   aws_secret_access_key: $AWS_SECRET_ACCESS_KEY
+  #   aws_session_token: $AWS_SESSION_TOKEN
+  #   file_prefix: chunk
+  #   file_identifier: dataframe
+  #   chunk_folder: chunks
+  #   models_folder: models
+
+  # Azure storage configuration
+  azure:
+    container_name: $AZURE_STORAGE_CONTAINER_NAME
+    connection_string: $AZURE_STORAGE_CONNECTION_STRING
+    file_prefix: chunk
+    file_identifier: dataframe
+    chunk_folder: chunks
+    models_folder: models
+
+# Grafana configuration
+grafana:
+  url: http://localhost:3000
+  api_key: $GRAFANA_SA_TOKEN
+
+# OpenTelemetry configuration
+telemetry:
+  endpoint: http://localhost:4317
+  service_name: dl_obs
+  service_namespace: dl_obs
+  env: dev
+  service_version: 0.1.0

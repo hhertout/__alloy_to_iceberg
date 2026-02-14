@@ -1,10 +1,10 @@
-import os
 import time
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from configs.base import load_grafana_settings
 from configs.constants import DatasourceKind, Time
 from src.data.grafana_dto import (
     GrafanaDatasource,
@@ -29,8 +29,15 @@ class GrafanaDao:
     """
 
     def __init__(self) -> None:
-        self.url = os.getenv("GRAFANA_URL")
-        self.api_key = os.getenv("GRAFANA_SA_TOKEN")
+        settings = load_grafana_settings()
+
+        if not settings.url:
+            raise ValueError("GRAFANA_URL is required")
+        if not settings.api_key:
+            raise ValueError("GRAFANA_SA_TOKEN is required")
+
+        self.url = settings.url
+        self.api_key = settings.api_key
         self.client = requests.Session()
         self.client.mount("https://", HTTPAdapter(max_retries=_RETRY_STRATEGY))
         self.client.mount("http://", HTTPAdapter(max_retries=_RETRY_STRATEGY))

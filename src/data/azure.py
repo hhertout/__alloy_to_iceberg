@@ -1,35 +1,42 @@
-import os
 import time
 from typing import IO
 
 from azure.core.exceptions import AzureError
 from azure.storage.blob import BlobServiceClient
 
+from configs.base import load_azure_settings
+from configs.constants import (
+    DEFAULT_AZ_FILE_EXTENSION,
+    DEFAULT_AZ_FILE_IDENTIFIER,
+    DEFAULT_AZ_FILE_PREFIX,
+)
 from utils.exceptions import AzureConnectionError, AzureUploadError
 
 
 class AzureInterface:
     def __init__(self) -> None:
-        connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-        container_name = os.getenv("AZURE_STORAGE_CONTAINER_NAME")
-
-        if not connection_string:
-            raise ValueError("AZURE_STORAGE_CONNECTION_STRING is required")
-        if not container_name:
-            raise ValueError("AZURE_STORAGE_CONTAINER_NAME is required")
-
-        self.connection_string = connection_string
-        self.container_name = container_name
-
-        self.file_prefix = "chunk"
-        self.file_identifier = "dataframe"
-        self.file_extension = "parquet"
-
-        self.chunk_folder = "chunks"
-        self.models_folder = "models"
+        # Load configuration
+        self.__parse_config()
 
         # Connect to Azure Storage
         self.__connect()
+
+    def __parse_config(self) -> None:
+        """Parses configuration parameters from a dictionary."""
+        settings = load_azure_settings()
+        if not settings.connection_string:
+            raise ValueError("AZURE_STORAGE_CONNECTION_STRING is required")
+        if not settings.container_name:
+            raise ValueError("AZURE_STORAGE_CONTAINER_NAME is required")
+
+        self.connection_string = settings.connection_string
+        self.container_name = settings.container_name
+        self.file_prefix = settings.file_prefix or DEFAULT_AZ_FILE_PREFIX
+        self.file_identifier = settings.file_identifier or DEFAULT_AZ_FILE_IDENTIFIER
+        self.file_extension = settings.file_extension or DEFAULT_AZ_FILE_EXTENSION
+
+        self.chunk_folder = settings.chunk_folder
+        self.models_folder = settings.models_folder
 
     def __connect(self) -> None:
         """Connects to Azure Storage using the connection string."""

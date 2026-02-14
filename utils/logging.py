@@ -4,6 +4,9 @@ import logging
 import sys
 from typing import Literal
 
+from configs.base import load_logs_settings
+from configs.constants import PROJECT_NAME
+
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 _logging_configured = False
 
@@ -28,6 +31,9 @@ def setup_logging(
         format_string = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
 
     handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
+
+    log_config = load_logs_settings()
+    level = log_config.log_level.upper() if log_config.log_level else level
 
     if enable_otel:
         try:
@@ -71,4 +77,4 @@ def get_logger(name: str) -> logging.Logger:
         setup_logging()
         _logging_configured = True
 
-    return logging.getLogger(f"dl_obs.{name}")
+    return logging.getLogger(f"{PROJECT_NAME}.{name}")

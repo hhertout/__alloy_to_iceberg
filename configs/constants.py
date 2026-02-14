@@ -1,5 +1,7 @@
 from enum import Enum
 
+PROJECT_NAME = "torch"
+
 
 class DatasourceKind(Enum):
     PROMETHEUS = "prometheus"
@@ -13,6 +15,17 @@ class Time(Enum):
     WEEK = 3600 * 24 * 7
     MONTH = 3600 * 24 * 30
 
+
+DEFAULT_AZ_FILE_PREFIX = "chunk"
+DEFAULT_AZ_FILE_IDENTIFIER = "dataframe"
+DEFAULT_AZ_FILE_EXTENSION = "parquet"
+
+DEFAULT_S3_FILE_PREFIX = "chunk"
+DEFAULT_S3_FILE_IDENTIFIER = "dataframe"
+DEFAULT_S3_FILE_EXTENSION = "parquet"
+
+CONFIG_PROM_KEY = "prometheus"
+CONFIG_LOKI_KEY = "loki"
 
 # DATA SAVING
 OUTPUT_DIR = "output"
