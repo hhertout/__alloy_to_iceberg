@@ -27,6 +27,15 @@ def _read_config_file(config_path: str = "configs/config.yaml") -> dict[str, Any
         config = yaml.safe_load(file)
     return config if config is not None else {}
 
+def load_storage_type() -> str:
+    config = _read_config_file()
+    storage_config = config.get("storage", {})
+
+    storage_type = "azure" if "azure" in storage_config else "s3" if "s3" in storage_config else None
+    if storage_type is None:
+        raise ValueError("No storage configuration found in config.yaml under 'storage.azure' or 'storage.s3'")
+    
+    return storage_type
 
 def _env(name: str) -> str | None:
     return os.environ.get(name)
@@ -45,7 +54,6 @@ def _first_non_empty(*values: str | None) -> str | None:
         if value is not None and value.strip() != "":
             return value
     return None
-
 
 class AzureSettings(BaseModel):
     connection_string: str
@@ -86,7 +94,6 @@ class TelemetrySettings(BaseModel):
     service_name: str = _DEFAULT_OTEL_SERVICE_NAME
     service_namespace: str = _DEFAULT_OTEL_SERVICE_NAMESPACE
     service_version: str = _DEFAULT_OTEL_SERVICE_VERSION
-
 
 def load_logs_settings(config: dict[str, Any] | None = None) -> LogsSettings:
     logs_config: dict[str, Any]

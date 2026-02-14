@@ -7,6 +7,7 @@ from typing import Any
 import polars as pl
 from dotenv import load_dotenv
 
+from configs.base import load_storage_type
 from configs.constants import OUTPUT_DIR, DatasourceKind
 from src.data.azure import AzureInterface
 from src.data.grafana import GrafanaDao
@@ -142,15 +143,6 @@ def process_data(processor: Processor, df: pl.DataFrame) -> pl.DataFrame:
     """Processes the data using the provided processor."""
     return processor.process(df)
 
-
-def get_storage_type(storage: str) -> str:
-    """Return normalized storage type."""
-    storage_type = storage.strip().lower()
-    if storage_type not in {"azure", "s3"}:
-        raise ValueError(f"Unsupported storage backend: {storage}")
-    return storage_type
-
-
 def push_to_blob(file: str) -> None:
     """Pushes data to Azure Blob Storage."""
     with open(file, "rb") as payload:
@@ -163,7 +155,7 @@ def push_to_bucket(file: str) -> None:
         S3Interface().upload_chunk(payload)
 
 
-async def main(skip_validation: bool, storage: str) -> None:
+async def main(skip_validation: bool) -> None:
     print_ascii_art()
     load_dotenv()
     log = get_logger("push_to_blob")
@@ -232,12 +224,12 @@ async def main(skip_validation: bool, storage: str) -> None:
             log.info("Push cancelled by user.")
             return
 
-    storage_type = get_storage_type(storage)
+    storage_type = load_storage_type()
     log.info(f"Pushing data to {storage_type} storage 📦...")
     try:
         if storage_type == "azure":
             push_to_blob(file=file)
-        else:
+        else: # storage_type == "s3"
             push_to_bucket(file=file)
     except Exception as e:
         _push_to_blob_failed.add(1, attributes=get_default_attributes())
@@ -266,12 +258,6 @@ if __name__ == "__main__":
         action="store_true",
         help="Skip data visualization and push data directly to blob storage.",
     )
-    parser.add_argument(
-        "--storage",
-        choices=["azure", "s3"],
-        default="azure",
-        help="Storage backend to use for upload.",
-    )
     args = parser.parse_args()
 
-    asyncio.run(main(skip_validation=args.skip_validation, storage=args.storage))
+    asyncio.run(main(skip_validation=args.skip_validation))
