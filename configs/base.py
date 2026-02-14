@@ -12,6 +12,7 @@ from configs.constants import (
     DEFAULT_S3_FILE_EXTENSION,
     DEFAULT_S3_FILE_IDENTIFIER,
     DEFAULT_S3_FILE_PREFIX,
+    DEFAULTS_LIMITS_OFFSET_DAYS,
 )
 
 _DEFAULT_OTLP_ENDPOINT = "http://localhost:4317"
@@ -27,15 +28,21 @@ def _read_config_file(config_path: str = "configs/config.yaml") -> dict[str, Any
         config = yaml.safe_load(file)
     return config if config is not None else {}
 
+
 def load_storage_type() -> str:
     config = _read_config_file()
     storage_config = config.get("storage", {})
 
-    storage_type = "azure" if "azure" in storage_config else "s3" if "s3" in storage_config else None
+    storage_type = (
+        "azure" if "azure" in storage_config else "s3" if "s3" in storage_config else None
+    )
     if storage_type is None:
-        raise ValueError("No storage configuration found in config.yaml under 'storage.azure' or 'storage.s3'")
-    
+        raise ValueError(
+            "No storage configuration found in config.yaml under 'storage.azure' or 'storage.s3'"
+        )
+
     return storage_type
+
 
 def _env(name: str) -> str | None:
     return os.environ.get(name)
@@ -55,6 +62,7 @@ def _first_non_empty(*values: str | None) -> str | None:
             return value
     return None
 
+
 class AzureSettings(BaseModel):
     connection_string: str
     container_name: str
@@ -63,6 +71,10 @@ class AzureSettings(BaseModel):
     file_extension: str = DEFAULT_AZ_FILE_EXTENSION
     chunk_folder: str = "chunks"
     models_folder: str = "models"
+
+
+class LimitsSettings(BaseModel):
+    offset_days: int = DEFAULTS_LIMITS_OFFSET_DAYS
 
 
 class S3Settings(BaseModel):
@@ -95,6 +107,7 @@ class TelemetrySettings(BaseModel):
     service_namespace: str = _DEFAULT_OTEL_SERVICE_NAMESPACE
     service_version: str = _DEFAULT_OTEL_SERVICE_VERSION
 
+
 def load_logs_settings(config: dict[str, Any] | None = None) -> LogsSettings:
     logs_config: dict[str, Any]
     if config is None:
@@ -112,6 +125,21 @@ def load_logs_settings(config: dict[str, Any] | None = None) -> LogsSettings:
     )
 
     return LogsSettings(log_level=log_level)
+
+
+def load_limits_settings(config: dict[str, Any] | None = None) -> LimitsSettings:
+    limits_config: dict[str, Any]
+    if config is None:
+        project_config = _read_config_file()
+        limits_config = project_config.get("limits", {})
+    elif "limits" in config:
+        limits_config = config.get("limits", {})
+    else:
+        limits_config = config
+
+    offset_days = limits_config.get("offset_days", DEFAULTS_LIMITS_OFFSET_DAYS)
+
+    return LimitsSettings(offset_days=offset_days)
 
 
 def load_grafana_settings(config: dict[str, Any] | None = None) -> GrafanaSettings:

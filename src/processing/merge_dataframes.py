@@ -1,12 +1,17 @@
+from typing import Protocol
+
 import polars as pl
-from opentelemetry.metrics import NoOpObservableGauge
 
 from configs.constants import DEFAULT_AGG_INTERVAL_MS
 from src.data.grafana_dto import TimeSeriesData
 from utils.telemetry import get_default_attributes
 
 
-def merge_dataframes(data: dict[str, TimeSeriesData], metric: NoOpObservableGauge) -> pl.DataFrame:
+class SupportsSetMetric(Protocol):
+    def set(self, value: int, attributes: dict[str, str] | None = None) -> None: ...
+
+
+def merge_dataframes(data: dict[str, TimeSeriesData], metric: SupportsSetMetric) -> pl.DataFrame:
     """Merges multiple single-metric DataFrames into one wide DataFrame.
 
     Builds a complete timeline from every source's timestamps, joins each

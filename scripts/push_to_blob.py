@@ -1,13 +1,14 @@
 import argparse
 import asyncio
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import polars as pl
 from dotenv import load_dotenv
 
-from configs.base import load_storage_type
+from configs.base import load_limits_settings, load_storage_type
 from configs.constants import OUTPUT_DIR, DatasourceKind
 from src.data.azure import AzureInterface
 from src.data.grafana import GrafanaDao
@@ -143,24 +144,27 @@ def process_data(processor: Processor, df: pl.DataFrame) -> pl.DataFrame:
     """Processes the data using the provided processor."""
     return processor.process(df)
 
-def push_to_blob(file: str) -> None:
+
+def push_to_blob(file: str, chunk_date: str) -> None:
     """Pushes data to Azure Blob Storage."""
     with open(file, "rb") as payload:
-        AzureInterface().upload_chunk(payload)
+        AzureInterface().upload_chunk(payload, chunk_date)
+    return
 
 
-def push_to_bucket(file: str) -> None:
+def push_to_bucket(file: str, chunk_date: str) -> None:
     """Pushes data to AWS S3 bucket."""
     with open(file, "rb") as payload:
-        S3Interface().upload_chunk(payload)
+        S3Interface().upload_chunk(payload, chunk_date)
+    return
 
 
-async def main(skip_validation: bool) -> None:
+async def main(skip_verify: bool) -> None:
     print_ascii_art()
     load_dotenv()
     log = get_logger("push_to_blob")
     _pipeline_runs.add(1, attributes={**get_default_attributes(), "run_ts": f"{time.time()}"})
-    if skip_validation:
+    if skip_verify:
         log.warning(
             "Skip validation mode is enabled - Ignoring dataviz and pushing data directly to blob storage."
         )
@@ -185,58 +189,65 @@ async def main(skip_validation: bool) -> None:
         _push_to_blob_failed.add(1, attributes=get_default_attributes())
         exit(1)
 
-    from_time, to_time = get_previous_day_range()
+    limits_settings = load_limits_settings()
+    days_offset = limits_settings.offset_days
 
-    log.info("Retrieving data from grafana...")
-    data = await retrieve_data(grafana_dao, queries, from_time, to_time)
-    log.info("Data retrieval complete.")
+    log.info(f"Executing script for the last {days_offset + 1} day(s)")
+    for i in range(days_offset + 1):
+        from_time, to_time = get_previous_day_range(offset_days=i)
+        chunk_date = datetime.fromtimestamp(from_time, UTC).strftime("%Y%m%d")
+        chunk_day_label = datetime.fromtimestamp(from_time, UTC).strftime("%Y-%m-%d")
 
-    # Step 3: Merging dataframes (merged on timestamp) and converting to parquet
-    log.info("Merging and resampling dataframes...")
+        log.info("Retrieving data from grafana...")
+        data = await retrieve_data(grafana_dao, queries, from_time, to_time)
+        log.info("Data retrieval complete.")
 
-    file = f"{OUTPUT_DIR}/output.parquet"
-    merged_df = merge_dataframes(data, metric=_dataframe_rows)
+        # Step 3: Merging dataframes (merged on timestamp) and converting to parquet
+        log.info("Merging and resampling dataframes...")
 
-    log.info("Processing dataset...")
-    merged_df = Processor.process(merged_df)
+        file = f"{OUTPUT_DIR}/output.parquet"
+        merged_df = merge_dataframes(data, metric=_dataframe_rows)
 
-    if Processor.is_null_present(merged_df) or Processor.is_nan_present(merged_df):
-        _push_to_blob_failed.add(1, attributes=get_default_attributes())
-        log.error(
-            "Null or NaN values detected in the merged dataframe after processing. Please check the data and processing steps."
-        )
-        exit(1)
+        log.info("Processing dataset...")
+        merged_df = Processor.process(merged_df)
 
-    log.info("Saving merged dataframe to parquet...")
-    merged_df = merged_df.sort("timestamp")
-    merged_df.write_parquet(file, compression="snappy")
+        if Processor.is_null_present(merged_df) or Processor.is_nan_present(merged_df):
+            _push_to_blob_failed.add(1, attributes=get_default_attributes())
+            log.error(
+                "Null or NaN values detected in the merged dataframe after processing. Please check the data and processing steps."
+            )
+            exit(1)
 
-    # Step 4: Push to Azure Blob Storage
-    # If not in skip_validation mode, visualize the data and ask for confirmation before pushing to blob storage.
-    # This is a safety measure to prevent pushing bad data to blob storage and also to provide a quick preview of the data being pushed.
-    if not skip_validation:
-        log.info("Visualizing data before pushing to blob storage...")
-        print(merged_df.head())
-        visualize_df(merged_df, "Merged DataFrame", merged_df.columns[1:])
+        log.info("Saving merged dataframe to parquet...")
+        merged_df = merged_df.sort("timestamp")
+        merged_df.write_parquet(file, compression="snappy")
 
-        confirm = input("Do you want to push data to blob storage? (y/N): ").strip().lower()
-        if confirm != "y" and confirm != "yes" and confirm != "1":
-            log.info("Push cancelled by user.")
+        # Step 4: Push to Azure Blob Storage
+        # If not in skip_verify mode, visualize the data and ask for confirmation before pushing to blob storage.
+        # This is a safety measure to prevent pushing bad data to blob storage and also to provide a quick preview of the data being pushed.
+        if not skip_verify:
+            log.info("Visualizing data before pushing to blob storage...")
+            print(merged_df.head())
+            visualize_df(merged_df, "Merged DataFrame", merged_df.columns[1:])
+
+            confirm = input("Do you want to push data to blob storage? (y/N): ").strip().lower()
+            if confirm != "y" and confirm != "yes" and confirm != "1":
+                log.info("Push cancelled by user.")
+                continue
+
+        storage_type = load_storage_type()
+        log.info(f"Pushing chunk for day={chunk_day_label} to {storage_type} storage 📦...")
+        try:
+            if storage_type == "azure":
+                push_to_blob(file=file, chunk_date=chunk_date)
+            else:  # storage_type == "s3"
+                push_to_bucket(file=file, chunk_date=chunk_date)
+        except Exception as e:
+            _push_to_blob_failed.add(1, attributes=get_default_attributes())
+            Path(file).unlink()
+            log.error(f"Failed to push data to {storage_type} storage: {e}")
+            log.error("Exiting...")
             return
-
-    storage_type = load_storage_type()
-    log.info(f"Pushing data to {storage_type} storage 📦...")
-    try:
-        if storage_type == "azure":
-            push_to_blob(file=file)
-        else: # storage_type == "s3"
-            push_to_bucket(file=file)
-    except Exception as e:
-        _push_to_blob_failed.add(1, attributes=get_default_attributes())
-        Path(file).unlink()
-        log.error(f"Failed to push data to {storage_type} storage: {e}")
-        log.error("Exiting...")
-        return
 
     # Step 5: Cleanup local file
     log.info(f"🎉 Data successfully pushed to {storage_type} storage.")
@@ -254,10 +265,10 @@ if __name__ == "__main__":
     """
     parser = argparse.ArgumentParser(description="Push data to configured storage backend.")
     parser.add_argument(
-        "--skip-validation",
+        "--skip-verify",
         action="store_true",
         help="Skip data visualization and push data directly to blob storage.",
     )
     args = parser.parse_args()
 
-    asyncio.run(main(skip_validation=args.skip_validation))
+    asyncio.run(main(skip_verify=args.skip_verify))

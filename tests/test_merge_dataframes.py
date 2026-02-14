@@ -13,12 +13,15 @@ from src.processing.merge_dataframes import (
 
 
 class _MockMetric:
-    """Minimal stub for the OTel UpDownCounter passed to merge_dataframes."""
+    """Minimal stub for the OTel metric passed to merge_dataframes."""
 
     def __init__(self) -> None:
         self.last_value: int | None = None
 
     def add(self, value: int, **kwargs: object) -> None:
+        self.last_value = value
+
+    def set(self, value: int, **kwargs: object) -> None:
         self.last_value = value
 
 

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import polars as pl
 
-from configs.get_queries_id import get_queries_id
+from utils.queries import get_queries_id
 from utils.telemetry import get_meter
 
 

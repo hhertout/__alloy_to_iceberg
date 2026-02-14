@@ -2,6 +2,15 @@ log:
   # Logging level (e.g., debug, info, warn, error)
   level: info
 
+# Grafana configuration
+grafana:
+  url: http://localhost:3000
+  api_key: $GRAFANA_SA_TOKEN
+
+# limits:
+    # Number of days to query data and push to storage (yesterday + limits.offset_days). 
+#   offset_days: 0 # defaults 0
+
 storage:
   # Amazon S3 configuration
   # s3:
@@ -24,11 +33,6 @@ storage:
     file_identifier: dataframe
     chunk_folder: chunks
     models_folder: models
-
-# Grafana configuration
-grafana:
-  url: http://localhost:3000
-  api_key: $GRAFANA_SA_TOKEN
 
 # OpenTelemetry configuration
 telemetry:

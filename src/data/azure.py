@@ -70,13 +70,13 @@ class AzureInterface:
         except ValueError as e:
             raise ValueError(f"Invalid date provided: {date}. Error: {e}") from e
 
-    def upload_chunk(self, data: bytes | str | IO[bytes]) -> None:
+    def upload_chunk(self, data: bytes | str | IO[bytes], chunk_date: str | None = None) -> None:
         """Uploads a file to Azure Storage as a blob.
 
         Raises:
             AzureUploadError: If the upload fails.
         """
-        nowstr = time.strftime("%Y%m%d")
+        nowstr = time.strftime("%Y%m%d") if chunk_date is None else chunk_date
         try:
             filename = f"{self.chunk_folder}/{self.__generate_filename(nowstr)}"
             conn = self.blob_client.get_blob_client(container=self.container_name, blob=filename)

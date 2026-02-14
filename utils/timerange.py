@@ -3,15 +3,15 @@
 from datetime import UTC, datetime, timedelta
 
 
-def get_previous_day_range(now: datetime | None = None) -> tuple[float, float]:
+def get_previous_day_range(offset_days: int = 0) -> tuple[float, float]:
     """Return the full previous day as a (from_time, to_time) tuple of Unix timestamps.
 
     The range covers **yesterday 00:00:00 UTC** (inclusive) to
     **yesterday 23:59:59 UTC** (inclusive), regardless of the current time.
 
     Args:
-        now: Reference point. Defaults to ``datetime.now(timezone.utc)``.
-             Accepts a custom value for testing.
+        offset_days: Number of days to offset from today. Defaults to 0 (yesterday).
+                     Can be negative to get future days.
 
     Returns:
         A tuple ``(from_timestamp, to_timestamp)`` in **seconds** (Unix epoch).
@@ -21,12 +21,13 @@ def get_previous_day_range(now: datetime | None = None) -> tuple[float, float]:
         - from: 2026-03-01 00:00:00 UTC  →  1740787200.0
         - to:   2026-03-01 23:59:59 UTC  →  1740873599.0
     """
-    if now is None:
-        now = datetime.now(UTC)
+    now = datetime.now(UTC)
 
-    yesterday = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
+    target_day = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
+        days=1 + offset_days
+    )
 
-    start = yesterday  # 00:00:00
-    end = yesterday.replace(hour=23, minute=59, second=59)  # 23:59:59
+    start = target_day  # 00:00:00
+    end = target_day.replace(hour=23, minute=59, second=59)  # 23:59:59
 
     return start.timestamp(), end.timestamp()

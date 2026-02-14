@@ -1,5 +1,5 @@
 import time
-from typing import IO
+from typing import IO, cast
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
@@ -66,15 +66,15 @@ class S3Interface:
         try:
             key = f"{self.chunk_folder}/{self.__generate_filename(date)}"
             response = self.client.get_object(Bucket=self.bucket_name, Key=key)
-            data = response["Body"].read()
+            data = cast(bytes, response["Body"].read())
             return data
         except (BotoCoreError, ClientError) as error:
             raise S3ConnectionError(f"Failed to retrieve object '{key}': {error}") from error
         except ValueError as error:
             raise ValueError(f"Invalid date provided: {date}. Error: {error}") from error
 
-    def upload_chunk(self, data: bytes | str | IO[bytes]) -> None:
-        nowstr = time.strftime("%Y%m%d")
+    def upload_chunk(self, data: bytes | str | IO[bytes], chunk_date: str | None = None) -> None:
+        nowstr = time.strftime("%Y%m%d") if chunk_date is None else chunk_date
         try:
             key = f"{self.chunk_folder}/{self.__generate_filename(nowstr)}"
             if isinstance(data, str):

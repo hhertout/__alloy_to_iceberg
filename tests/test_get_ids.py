@@ -4,7 +4,7 @@ from unittest.mock import mock_open, patch
 import pytest
 import yaml
 
-from configs.get_queries_id import get_queries_id
+from utils.queries import get_queries_id
 
 SINGLE_DS_CONFIG = {
     "prometheus": {
