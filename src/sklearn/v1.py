@@ -8,7 +8,6 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from xgboost import XGBRegressor
 
 from configs.base import load_limits_settings, load_model_settings
-from src.processing.normalization import apply_standardization, standardize_train_eval
 from src.processing.split_df_for_training import split_df_for_training
 from utils.logging import get_logger
 
@@ -114,7 +113,7 @@ def sklearn_train_xgboost(df: pl.DataFrame) -> tuple[object, dict[str, float]]:
     log.info(
         f"Training XGBoost model with {X_train.shape[0]} samples and {X_train.shape[1]} features..."
     )
-    model.fit(X_train, y_train, eval_set=[(X_eval, y_eval)])
+    model.fit(X_train, y_train, eval_set=[(X_eval, y_eval)], verbose=False)
     predictions = model.predict(X_test)
 
     mae = mean_absolute_error(y_test, predictions)

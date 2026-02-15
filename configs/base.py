@@ -66,6 +66,12 @@ def _first_non_empty(*values: str | None) -> str | None:
     return None
 
 
+def _require_non_empty(value: str | None, field_name: str) -> str:
+    if value is None or value.strip() == "":
+        raise ValueError(f"Missing required configuration value: {field_name}")
+    return value
+
+
 class AzureSettings(BaseModel):
     connection_string: str
     container_name: str
@@ -138,10 +144,27 @@ class ProphetSettings(BaseModel):
     daily_seasonality: bool = True
 
 
+class PytorchSettings(BaseModel):
+    enabled: bool = False
+    device: str = "auto"
+    ensemble_runs: int = 1
+    sequence_length: int = 60
+    hidden_size: int = 64
+    num_layers: int = 2
+    dropout: float = 0.2
+    learning_rate: float = 0.001
+    weight_decay: float = 0.0
+    batch_size: int = 128
+    epochs: int = 20
+    early_stopping_patience: int = 5
+    random_seed: int = 42
+
+
 class ModelSettings(BaseModel):
     random_forest: RandomForestSettings = RandomForestSettings()
     xgboost: XGBoostSettings = XGBoostSettings()
     prophet: ProphetSettings = ProphetSettings()
+    pytorch: PytorchSettings = PytorchSettings()
 
 
 class GrafanaSettings(BaseModel):
@@ -173,7 +196,7 @@ def load_logs_settings(config: dict[str, Any] | None = None) -> LogsSettings:
         "info",
     )
 
-    return LogsSettings(log_level=log_level)
+    return LogsSettings(log_level=_require_non_empty(log_level, "log.level"))
 
 
 def load_limits_settings(config: dict[str, Any] | None = None) -> LimitsSettings:
@@ -251,10 +274,28 @@ def load_model_settings(config: dict[str, Any] | None = None) -> ModelSettings:
         daily_seasonality=prophet_config.get("daily_seasonality", True),
     )
 
+    pytorch_config = model_config.get("pytorch", {})
+    pytorch_settings = PytorchSettings(
+        enabled=pytorch_config.get("enabled", False),
+        device=pytorch_config.get("device", "auto"),
+        ensemble_runs=pytorch_config.get("ensemble_runs", 1),
+        sequence_length=pytorch_config.get("sequence_length", 60),
+        hidden_size=pytorch_config.get("hidden_size", 64),
+        num_layers=pytorch_config.get("num_layers", 2),
+        dropout=pytorch_config.get("dropout", 0.2),
+        learning_rate=pytorch_config.get("learning_rate", 0.001),
+        weight_decay=pytorch_config.get("weight_decay", 0.0),
+        batch_size=pytorch_config.get("batch_size", 128),
+        epochs=pytorch_config.get("epochs", 20),
+        early_stopping_patience=pytorch_config.get("early_stopping_patience", 5),
+        random_seed=pytorch_config.get("random_seed", 42),
+    )
+
     return ModelSettings(
         random_forest=random_forest_settings,
         xgboost=xgboost_settings,
         prophet=prophet_settings,
+        pytorch=pytorch_settings,
     )
 
 
@@ -277,7 +318,10 @@ def load_grafana_settings(config: dict[str, Any] | None = None) -> GrafanaSettin
         _env("GRAFANA_API_KEY"),
     )
 
-    return GrafanaSettings(url=url, api_key=api_key)
+    return GrafanaSettings(
+        url=_require_non_empty(url, "grafana.url"),
+        api_key=_require_non_empty(api_key, "grafana.api_key"),
+    )
 
 
 def load_azure_settings(config: dict[str, Any] | None = None) -> AzureSettings:
@@ -300,8 +344,11 @@ def load_azure_settings(config: dict[str, Any] | None = None) -> AzureSettings:
     )
 
     return AzureSettings(
-        connection_string=connection_string,
-        container_name=container_name,
+        connection_string=_require_non_empty(
+            connection_string,
+            "storage.azure.connection_string",
+        ),
+        container_name=_require_non_empty(container_name, "storage.azure.container_name"),
         file_prefix=azure_config.get("file_prefix", DEFAULT_AZ_FILE_PREFIX),
         file_identifier=azure_config.get("file_identifier", DEFAULT_AZ_FILE_IDENTIFIER),
         file_extension=azure_config.get("file_extension", DEFAULT_AZ_FILE_EXTENSION),
@@ -348,7 +395,7 @@ def load_s3_settings(config: dict[str, Any] | None = None) -> S3Settings:
     )
 
     return S3Settings(
-        bucket_name=bucket_name,
+        bucket_name=_require_non_empty(bucket_name, "storage.s3.bucket_name"),
         region_name=region_name,
         endpoint_url=endpoint_url,
         aws_access_key_id=aws_access_key_id,

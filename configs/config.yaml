@@ -49,6 +49,20 @@ models:
     yearly_seasonality: false
     weekly_seasonality: true
     daily_seasonality: true
+  pytorch:
+    enabled: true
+    device: auto  # auto|cpu|mps|cuda
+    ensemble_runs: 1  # increase to 3+ for best quality in production
+    sequence_length: 1440  # 1 day of minute-level data = 1440 minutes
+    hidden_size: 64
+    num_layers: 2
+    dropout: 0.1
+    learning_rate: 0.0005
+    weight_decay: 0.00001
+    batch_size: 512
+    epochs: 10
+    early_stopping_patience: 7
+    random_seed: 42
 
 storage:
   # Amazon S3 configuration

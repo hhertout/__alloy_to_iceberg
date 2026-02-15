@@ -38,6 +38,21 @@ class TestLoadModelSettings:
                     "weekly_seasonality": False,
                     "daily_seasonality": True,
                 },
+                "pytorch": {
+                    "enabled": True,
+                    "device": "mps",
+                    "ensemble_runs": 3,
+                    "sequence_length": 48,
+                    "hidden_size": 96,
+                    "num_layers": 3,
+                    "dropout": 0.25,
+                    "learning_rate": 0.0007,
+                    "weight_decay": 0.0001,
+                    "batch_size": 64,
+                    "epochs": 30,
+                    "early_stopping_patience": 6,
+                    "random_seed": 11,
+                },
             }
         }
 
@@ -70,6 +85,19 @@ class TestLoadModelSettings:
         assert settings.prophet.yearly_seasonality is True
         assert settings.prophet.weekly_seasonality is False
         assert settings.prophet.daily_seasonality is True
+        assert settings.pytorch.enabled is True
+        assert settings.pytorch.device == "mps"
+        assert settings.pytorch.ensemble_runs == 3
+        assert settings.pytorch.sequence_length == 48
+        assert settings.pytorch.hidden_size == 96
+        assert settings.pytorch.num_layers == 3
+        assert settings.pytorch.dropout == 0.25
+        assert settings.pytorch.learning_rate == 0.0007
+        assert settings.pytorch.weight_decay == 0.0001
+        assert settings.pytorch.batch_size == 64
+        assert settings.pytorch.epochs == 30
+        assert settings.pytorch.early_stopping_patience == 6
+        assert settings.pytorch.random_seed == 11
 
     def test_reads_legacy_model_key(self) -> None:
         config = {"model": {"random_forest": {"verbose": 2}}}
@@ -80,6 +108,7 @@ class TestLoadModelSettings:
         assert settings.random_forest.verbose == 2
         assert settings.xgboost.enabled is False
         assert settings.prophet.enabled is False
+        assert settings.pytorch.enabled is False
 
     def test_enabled_defaults_to_false_when_missing(self) -> None:
         config = {
@@ -87,6 +116,7 @@ class TestLoadModelSettings:
                 "random_forest": {"n_estimators": 10},
                 "xgboost": {"n_estimators": 20},
                 "prophet": {"seasonality_mode": "additive"},
+                "pytorch": {"sequence_length": 24},
             }
         }
 
@@ -95,3 +125,21 @@ class TestLoadModelSettings:
         assert settings.random_forest.enabled is False
         assert settings.xgboost.enabled is False
         assert settings.prophet.enabled is False
+        assert settings.pytorch.enabled is False
+        assert settings.pytorch.device == "auto"
+        assert settings.pytorch.ensemble_runs == 1
+
+    def test_pytorch_device_can_be_cuda(self) -> None:
+        config = {
+            "models": {
+                "pytorch": {
+                    "enabled": True,
+                    "device": "cuda",
+                }
+            }
+        }
+
+        settings = load_model_settings(config)
+
+        assert settings.pytorch.enabled is True
+        assert settings.pytorch.device == "cuda"

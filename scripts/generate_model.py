@@ -10,6 +10,7 @@ from configs.constants import TRAINING_TIMEWINDOW_DAYS
 from src.data.azure import AzureInterface
 from src.features.v1 import FeaturesEngineeringV1
 from src.prophet.v1 import prophet_train_v1
+from src.pytorch.v1 import pytorch_train_lstm
 from src.sklearn.v1 import sklearn_train_rand_forest, sklearn_train_xgboost
 from utils.askii_art import print_ascii_art
 from utils.fake_data import generate_fake_dataframe
@@ -27,6 +28,11 @@ _dataframe_rows = _meter.create_gauge(
     description="Number of rows in the merged DataFrame",
 )
 
+_dataframe_features = _meter.create_gauge(
+    "ml.training.features.number",
+    description="Number of features in the final training DataFrame after feature engineering",
+)
+
 _sklearn_time = _meter.create_gauge(
     "ml.training.sklearn.time.seconds",
     description="Time taken for sklearn model training in seconds",
@@ -40,6 +46,21 @@ _sklearn_mae = _meter.create_gauge(
 _sklearn_rmse = _meter.create_gauge(
     "ml.training.sklearn.rmse",
     description="Root Mean Squared Error of sklearn model",
+)
+
+_pytorch_time = _meter.create_gauge(
+    "ml.training.pytorch.time.seconds",
+    description="Time taken for pytorch model training in seconds",
+)
+
+_pytorch_mae = _meter.create_gauge(
+    "ml.training.pytorch.mae",
+    description="Mean Absolute Error of pytorch model",
+)
+
+_pytorch_rmse = _meter.create_gauge(
+    "ml.training.pytorch.rmse",
+    description="Root Mean Squared Error of pytorch model",
 )
 
 
@@ -93,7 +114,7 @@ def main() -> None:
 
     if args.use_fake:
         log.warning("Using fake synthetic data (--use-fake enabled)...")
-        df = generate_fake_dataframe(days=360)
+        df = generate_fake_dataframe(days=90)
     else:
         log.info("Retrieving data chunks from Storage...")
         chunks_bytes = get_az_chunks()
@@ -104,6 +125,7 @@ def main() -> None:
     log.info("Feature engineering...")
     fe = FeaturesEngineeringV1()
     df = fe.generate_features(df)
+    _dataframe_features.set(df.width, attributes=get_default_attributes())
 
     log.info("Training model...")
     models_settings = load_model_settings()
@@ -143,7 +165,16 @@ def main() -> None:
         _sklearn_mae.set(prophet_metrics["mae"], attributes=prophet_attributes)
         _sklearn_rmse.set(prophet_metrics["rmse"], attributes=prophet_attributes)
 
-    log.info("Pytorch training...")
+    if models_settings.pytorch.enabled:
+        log.info("Training PyTorch LSTM model...")
+        _, pytorch_metrics = pytorch_train_lstm(df)
+        log.info(
+            f"PyTorch LSTM metrics time={pytorch_metrics['training_time_seconds']}, mae={pytorch_metrics['mae']}, rmse={pytorch_metrics['rmse']}"
+        )
+        pt_attributes = {**get_default_attributes(), "model_type": "pytorch_lstm"}
+        _pytorch_time.set(pytorch_metrics["training_time_seconds"], attributes=pt_attributes)
+        _pytorch_mae.set(pytorch_metrics["mae"], attributes=pt_attributes)
+        _pytorch_rmse.set(pytorch_metrics["rmse"], attributes=pt_attributes)
 
     log.info("Saving model to Azure Storage...")
     log.info("Model generation process completed successfully.")

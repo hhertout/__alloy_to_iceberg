@@ -1,6 +1,6 @@
 from enum import Enum
 
-PROJECT_NAME = "torch"
+PROJECT_NAME = "dl_obs"
 
 
 class DatasourceKind(Enum):
