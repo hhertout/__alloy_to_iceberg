@@ -1,13 +1,18 @@
+import argparse
 import time
 from datetime import datetime, timedelta
 
 import polars as pl
 from dotenv import load_dotenv
 
+from configs.base import load_model_settings
 from configs.constants import TRAINING_TIMEWINDOW_DAYS
 from src.data.azure import AzureInterface
 from src.features.v1 import FeaturesEngineeringV1
+from src.prophet.v1 import prophet_train_v1
+from src.sklearn.v1 import sklearn_train_rand_forest, sklearn_train_xgboost
 from utils.askii_art import print_ascii_art
+from utils.fake_data import generate_fake_dataframe
 from utils.logging import get_logger
 from utils.telemetry import get_default_attributes, get_meter
 
@@ -20,6 +25,21 @@ _pipeline_runs = _meter.create_counter(
 _dataframe_rows = _meter.create_gauge(
     "ml.training.dataframe.rows",
     description="Number of rows in the merged DataFrame",
+)
+
+_sklearn_time = _meter.create_gauge(
+    "ml.training.sklearn.time.seconds",
+    description="Time taken for sklearn model training in seconds",
+)
+
+_sklearn_mae = _meter.create_gauge(
+    "ml.training.sklearn.mae",
+    description="Mean Absolute Error of sklearn model",
+)
+
+_sklearn_rmse = _meter.create_gauge(
+    "ml.training.sklearn.rmse",
+    description="Root Mean Squared Error of sklearn model",
 )
 
 
@@ -47,7 +67,18 @@ def to_dataframe(chunks_data: list[bytes]) -> pl.DataFrame:
     return merged_df
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Generate and train model")
+    parser.add_argument(
+        "--use-fake",
+        action="store_true",
+        help="Use synthetic representative data instead of Azure chunks.",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
+    args = parse_args()
     print_ascii_art()
     load_dotenv()
     log = get_logger("generate_model")
@@ -55,23 +86,65 @@ def main() -> None:
 
     log.info("Starting model generation process...")
     log.info(
-        "This script will retrieve data chunks from Azure Storage, process them, and prepare a dataset for model training."
+        "This script will retrieve data chunks from Storage, process them, and prepare a dataset for model training."
     )
-    log.info("Once done, the model is trained and saved back to Azure Storage.")
+    log.info("Once done, the model is trained and saved back to Storage.")
     log.info("=" * 50)
 
-    log.info("Retrieving data chunks from Azure Storage...")
-    chunks_bytes = get_az_chunks()
-    df = to_dataframe(chunks_bytes)
+    if args.use_fake:
+        log.warning("Using fake synthetic data (--use-fake enabled)...")
+        df = generate_fake_dataframe(days=360)
+    else:
+        log.info("Retrieving data chunks from Storage...")
+        chunks_bytes = get_az_chunks()
+        df = to_dataframe(chunks_bytes)
+
     _dataframe_rows.set(df.height, attributes=get_default_attributes())
 
     log.info("Feature engineering...")
     fe = FeaturesEngineeringV1()
     df = fe.generate_features(df)
 
-    print(df.head())
-
     log.info("Training model...")
+    models_settings = load_model_settings()
+
+    if models_settings.random_forest.enabled:
+        # Random Forest
+        log.info("Training Random Forest model...")
+        _, rand_forest_metrics = sklearn_train_rand_forest(df)
+        log.info(
+            f"Random Forest metrics time={rand_forest_metrics['training_time_seconds']}, mae={rand_forest_metrics['mae']}, rmse={rand_forest_metrics['rmse']}"
+        )
+        rf_attributes = {**get_default_attributes(), "model_type": "random_forest"}
+        _sklearn_time.set(rand_forest_metrics["training_time_seconds"], attributes=rf_attributes)
+        _sklearn_mae.set(rand_forest_metrics["mae"], attributes=rf_attributes)
+        _sklearn_rmse.set(rand_forest_metrics["rmse"], attributes=rf_attributes)
+
+    if models_settings.xgboost.enabled:
+        # Xgboost
+        log.info("Training XGBoost model...")
+        _, xgboost_metrics = sklearn_train_xgboost(df)
+        log.info(
+            f"XGBoost metrics time={xgboost_metrics['training_time_seconds']}, mae={xgboost_metrics['mae']}, rmse={xgboost_metrics['rmse']}"
+        )
+        xgb_attributes = {**get_default_attributes(), "model_type": "xgboost"}
+        _sklearn_time.set(xgboost_metrics["training_time_seconds"], attributes=xgb_attributes)
+        _sklearn_mae.set(xgboost_metrics["mae"], attributes=xgb_attributes)
+        _sklearn_rmse.set(xgboost_metrics["rmse"], attributes=xgb_attributes)
+
+    if models_settings.prophet.enabled:
+        log.info("Training Prophet model...")
+        _, prophet_metrics = prophet_train_v1(df)
+        log.info(
+            f"Prophet metrics time={prophet_metrics['training_time_seconds']}, mae={prophet_metrics['mae']}, rmse={prophet_metrics['rmse']}"
+        )
+        prophet_attributes = {**get_default_attributes(), "model_type": "prophet"}
+        _sklearn_time.set(prophet_metrics["training_time_seconds"], attributes=prophet_attributes)
+        _sklearn_mae.set(prophet_metrics["mae"], attributes=prophet_attributes)
+        _sklearn_rmse.set(prophet_metrics["rmse"], attributes=prophet_attributes)
+
+    log.info("Pytorch training...")
+
     log.info("Saving model to Azure Storage...")
     log.info("Model generation process completed successfully.")
 

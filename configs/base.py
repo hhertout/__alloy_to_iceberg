@@ -9,9 +9,11 @@ from configs.constants import (
     DEFAULT_AZ_FILE_EXTENSION,
     DEFAULT_AZ_FILE_IDENTIFIER,
     DEFAULT_AZ_FILE_PREFIX,
+    DEFAULT_LIMITS_TARGET_COL_NAME,
     DEFAULT_S3_FILE_EXTENSION,
     DEFAULT_S3_FILE_IDENTIFIER,
     DEFAULT_S3_FILE_PREFIX,
+    DEFAULTS_LIMITS_DF_SPLIT_SIZE,
     DEFAULTS_LIMITS_OFFSET_DAYS,
     DEFAULTS_LIMITS_TRAINING_WINDOW_DAYS,
 )
@@ -77,6 +79,9 @@ class AzureSettings(BaseModel):
 class LimitsSettings(BaseModel):
     offset_days: int = DEFAULTS_LIMITS_OFFSET_DAYS
     training_window_days: int = DEFAULTS_LIMITS_TRAINING_WINDOW_DAYS
+    training_test_size: float = DEFAULTS_LIMITS_DF_SPLIT_SIZE
+    training_val_size: float = DEFAULTS_LIMITS_DF_SPLIT_SIZE
+    target_column_name: str = DEFAULT_LIMITS_TARGET_COL_NAME
 
 
 class S3Settings(BaseModel):
@@ -95,6 +100,48 @@ class S3Settings(BaseModel):
 
 class LogsSettings(BaseModel):
     log_level: str = "info"
+
+
+class RandomForestSettings(BaseModel):
+    enabled: bool = False
+    n_estimators: int = 100
+    max_depth: int = 10
+    min_samples_split: int = 10
+    random_state: int = 42
+    n_jobs: int = -1
+    verbose: int = 0
+
+
+class XGBoostSettings(BaseModel):
+    enabled: bool = False
+    n_estimators: int = 300
+    max_depth: int = 6
+    learning_rate: float = 0.05
+    subsample: float = 0.9
+    colsample_bytree: float = 0.9
+    min_child_weight: float = 1.0
+    gamma: float = 0.0
+    reg_alpha: float = 0.0
+    reg_lambda: float = 1.0
+    random_state: int = 42
+    n_jobs: int = -1
+    verbosity: int = 0
+
+
+class ProphetSettings(BaseModel):
+    enabled: bool = False
+    seasonality_mode: str = "additive"
+    changepoint_prior_scale: float = 0.05
+    seasonality_prior_scale: float = 10.0
+    yearly_seasonality: bool = False
+    weekly_seasonality: bool = True
+    daily_seasonality: bool = True
+
+
+class ModelSettings(BaseModel):
+    random_forest: RandomForestSettings = RandomForestSettings()
+    xgboost: XGBoostSettings = XGBoostSettings()
+    prophet: ProphetSettings = ProphetSettings()
 
 
 class GrafanaSettings(BaseModel):
@@ -143,8 +190,72 @@ def load_limits_settings(config: dict[str, Any] | None = None) -> LimitsSettings
     training_window_days = limits_config.get(
         "training_window_days", DEFAULTS_LIMITS_TRAINING_WINDOW_DAYS
     )
+    training_test_size = limits_config.get("training_test_size", DEFAULTS_LIMITS_DF_SPLIT_SIZE)
+    training_val_size = limits_config.get("training_val_size", DEFAULTS_LIMITS_DF_SPLIT_SIZE)
+    target_column_name = limits_config.get("target_column_name", DEFAULT_LIMITS_TARGET_COL_NAME)
+    return LimitsSettings(
+        offset_days=offset_days,
+        training_window_days=training_window_days,
+        training_test_size=training_test_size,
+        training_val_size=training_val_size,
+        target_column_name=target_column_name,
+    )
 
-    return LimitsSettings(offset_days=offset_days, training_window_days=training_window_days)
+
+def load_model_settings(config: dict[str, Any] | None = None) -> ModelSettings:
+    model_config: dict[str, Any]
+    if config is None:
+        project_config = _read_config_file()
+        model_config = project_config.get("models") or project_config.get("model", {})
+    elif "models" in config or "model" in config:
+        model_config = config.get("models") or config.get("model", {})
+    else:
+        model_config = config
+
+    rf_config = model_config.get("random_forest", {})
+    random_forest_settings = RandomForestSettings(
+        enabled=rf_config.get("enabled", False),
+        n_estimators=rf_config.get("n_estimators", 100),
+        max_depth=rf_config.get("max_depth", 10),
+        min_samples_split=rf_config.get("min_samples_split", 10),
+        random_state=rf_config.get("random_state", 42),
+        n_jobs=rf_config.get("n_jobs", -1),
+        verbose=rf_config.get("verbose", 0),
+    )
+
+    xgb_config = model_config.get("xgboost", {})
+    xgboost_settings = XGBoostSettings(
+        enabled=xgb_config.get("enabled", False),
+        n_estimators=xgb_config.get("n_estimators", 300),
+        max_depth=xgb_config.get("max_depth", 6),
+        learning_rate=xgb_config.get("learning_rate", 0.05),
+        subsample=xgb_config.get("subsample", 0.9),
+        colsample_bytree=xgb_config.get("colsample_bytree", 0.9),
+        min_child_weight=xgb_config.get("min_child_weight", 1.0),
+        gamma=xgb_config.get("gamma", 0.0),
+        reg_alpha=xgb_config.get("reg_alpha", 0.0),
+        reg_lambda=xgb_config.get("reg_lambda", 1.0),
+        random_state=xgb_config.get("random_state", 42),
+        n_jobs=xgb_config.get("n_jobs", -1),
+        verbosity=xgb_config.get("verbosity", 0),
+    )
+
+    prophet_config = model_config.get("prophet", {})
+    prophet_settings = ProphetSettings(
+        enabled=prophet_config.get("enabled", False),
+        seasonality_mode=prophet_config.get("seasonality_mode", "additive"),
+        changepoint_prior_scale=prophet_config.get("changepoint_prior_scale", 0.05),
+        seasonality_prior_scale=prophet_config.get("seasonality_prior_scale", 10.0),
+        yearly_seasonality=prophet_config.get("yearly_seasonality", False),
+        weekly_seasonality=prophet_config.get("weekly_seasonality", True),
+        daily_seasonality=prophet_config.get("daily_seasonality", True),
+    )
+
+    return ModelSettings(
+        random_forest=random_forest_settings,
+        xgboost=xgboost_settings,
+        prophet=prophet_settings,
+    )
 
 
 def load_grafana_settings(config: dict[str, Any] | None = None) -> GrafanaSettings:

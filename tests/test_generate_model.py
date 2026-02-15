@@ -1,9 +1,11 @@
 import io
+from types import SimpleNamespace
 
 import polars as pl
 import pytest
 
 from scripts.generate_model import to_dataframe
+from utils.fake_data import generate_fake_dataframe
 
 
 def _make_parquet_bytes(df: pl.DataFrame) -> bytes:
@@ -58,3 +60,49 @@ class TestToDataframe:
 
         assert result.shape == (3, 1)
         assert result["x"].to_list() == [0, 1, 2]
+
+
+class TestGenerateFakeDataframe:
+    def test_dynamic_columns_from_queries(self, monkeypatch, tmp_path) -> None:
+        monkeypatch.setattr(
+            "utils.fake_data.get_queries_id",
+            lambda: SimpleNamespace(metric_a="metric_a", metric_b="metric_b"),
+        )
+
+        cache_path = tmp_path / "df.parquet"
+        df = generate_fake_dataframe(days=1, step_seconds=60, seed=7, cache_path=str(cache_path))
+
+        assert "timestamp" in df.columns
+        assert "metric_a" in df.columns
+        assert "metric_b" in df.columns
+
+    def test_non_negative_values_and_sorted_timestamp(self, monkeypatch, tmp_path) -> None:
+        monkeypatch.setattr(
+            "utils.fake_data.get_queries_id",
+            lambda: SimpleNamespace(metric_x="metric_x"),
+        )
+
+        cache_path = tmp_path / "df.parquet"
+        df = generate_fake_dataframe(days=1, step_seconds=60, seed=11, cache_path=str(cache_path))
+
+        assert df.height == 1440
+        assert all(v >= 0.0 for v in df["metric_x"].to_list())
+        ts = df["timestamp"].to_list()
+        assert ts == sorted(ts)
+
+    def test_loads_cached_dataframe_when_file_exists(self, monkeypatch, tmp_path) -> None:
+        cache_path = tmp_path / "df.parquet"
+
+        monkeypatch.setattr(
+            "utils.fake_data.get_queries_id",
+            lambda: SimpleNamespace(metric_x="metric_x"),
+        )
+        first_df = generate_fake_dataframe(days=1, step_seconds=60, seed=11, cache_path=str(cache_path))
+
+        monkeypatch.setattr(
+            "utils.fake_data.get_queries_id",
+            lambda: (_ for _ in ()).throw(RuntimeError("should not regenerate")),
+        )
+        second_df = generate_fake_dataframe(days=30, step_seconds=300, seed=99, cache_path=str(cache_path))
+
+        assert first_df.equals(second_df)

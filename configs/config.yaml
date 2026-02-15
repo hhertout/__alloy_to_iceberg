@@ -8,9 +8,47 @@ grafana:
   api_key: $GRAFANA_SA_TOKEN
 
 limits:
-    # Number of days to query data and push to storage (yesterday + limits.offset_days). 
+  # Number of days to query data and push to storage (yesterday + limits.offset_days). 
   # offset_days: 0 # defaults 0
   training_window_days: 2 # defaults 90
+  # Proportion of the dataset to include in the test split (between 0.0 and 1.0)
+  training_test_size: 0.15 # defaults 0.15
+  # Proportion of the dataset to include in the validation split (between 0.0 and 1.0)
+  training_val_size: 0.15 # defaults 0.15
+  # Target column name in the dataset
+  target_column_name: alloy_queue_length # defaults "target"
+
+models:
+  random_forest:
+    enabled: false
+    n_estimators: 40
+    max_depth: 8
+    min_samples_split: 7
+    random_state: 42
+    n_jobs: -1
+    verbose: 0
+  xgboost:
+    enabled: true
+    n_estimators: 300
+    max_depth: 5
+    learning_rate: 0.08
+    subsample: 0.9
+    colsample_bytree: 0.8
+    min_child_weight: 1
+    gamma: 0.1
+    reg_alpha: 0.1
+    reg_lambda: 1.0
+    random_state: 42
+    n_jobs: -1
+    verbosity: 0
+  prophet:
+    enabled: false
+    seasonality_mode: additive
+    changepoint_prior_scale: 0.05
+    seasonality_prior_scale: 10.0
+    yearly_seasonality: false
+    weekly_seasonality: true
+    daily_seasonality: true
 
 storage:
   # Amazon S3 configuration
