@@ -3,7 +3,7 @@ from typing import Any
 
 import numpy as np
 import polars as pl
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error, mean_squared_error
 
 from configs.base import load_limits_settings, load_model_settings
 from src.processing.split_df_for_training import split_df_for_training
@@ -19,6 +19,7 @@ def _to_prophet_frame(df: pl.DataFrame, target_col: str, regressor_cols: list[st
     frame = frame.replace([np.inf, -np.inf], np.nan).dropna(axis=0)
     frame = frame.copy()
     return frame
+
 
 def prophet_train_v1(df: pl.DataFrame) -> tuple[object, dict[str, float]]:
     try:
@@ -74,12 +75,14 @@ def prophet_train_v1(df: pl.DataFrame) -> tuple[object, dict[str, float]]:
 
     mae = mean_absolute_error(y_true, predictions)
     rmse = np.sqrt(mean_squared_error(y_true, predictions))
+    mape = mean_absolute_percentage_error(y_true, predictions)
     training_time = time.time() - start
 
     metrics = {
         "training_time_seconds": training_time,
         "mae": mae,
         "rmse": rmse,
+        "mape": mape,
     }
 
     return model, metrics

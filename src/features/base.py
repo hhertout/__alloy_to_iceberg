@@ -101,6 +101,9 @@ class FeaturesEngineering(ABC):
             .drop("day_of_week")
         )
 
+    def get_week_seasonality(self, df: pl.DataFrame) -> pl.DataFrame:
+        return self.week_seasonality(df)
+
     def month_seasonality(self, df: pl.DataFrame) -> pl.DataFrame:
         return (
             df.with_columns(month=pl.col("timestamp").cast(pl.Datetime("ms")).dt.month())

@@ -97,12 +97,16 @@ class TestGenerateFakeDataframe:
             "utils.fake_data.get_queries_id",
             lambda: SimpleNamespace(metric_x="metric_x"),
         )
-        first_df = generate_fake_dataframe(days=1, step_seconds=60, seed=11, cache_path=str(cache_path))
+        first_df = generate_fake_dataframe(
+            days=1, step_seconds=60, seed=11, cache_path=str(cache_path)
+        )
 
         monkeypatch.setattr(
             "utils.fake_data.get_queries_id",
             lambda: (_ for _ in ()).throw(RuntimeError("should not regenerate")),
         )
-        second_df = generate_fake_dataframe(days=30, step_seconds=300, seed=99, cache_path=str(cache_path))
+        second_df = generate_fake_dataframe(
+            days=30, step_seconds=300, seed=99, cache_path=str(cache_path)
+        )
 
         assert first_df.equals(second_df)

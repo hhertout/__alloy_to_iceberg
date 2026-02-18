@@ -28,7 +28,7 @@ class TestBaseSeasonality:
             }
         )
 
-        out = fe.get_hour_seasonality(df)
+        out = fe.hour_seasonality(df)
 
         assert "hour" not in out.columns
         assert "hour_radian" not in out.columns

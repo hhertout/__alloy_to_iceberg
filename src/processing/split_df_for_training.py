@@ -20,4 +20,3 @@ def split_df_for_training(df: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame,
     )
 
     return df[:val_start], df[val_start:test_start], df[test_start:]
-

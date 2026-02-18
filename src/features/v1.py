@@ -28,14 +28,7 @@ class FeaturesEngineeringV1(FeaturesEngineering):
             self.cols.cpu_usage,
             self.cols.loki_request_rate,
         ]
-        percentile_cols = [
-            self.cols.alloy_queue_length,
-            self.cols.cpu_usage,
-            self.cols.loki_request_rate,
-        ]
-        diff_ratio_cols = [
-            col for col in rolling_cols if col != self.cols.alloy_queue_length
-        ]
+        diff_ratio_cols = [col for col in rolling_cols if col != self.cols.alloy_queue_length]
 
         df = self.__lag(df, lag_cols, minutes=1, suffix="1m")
         df = self.__lag(df, lag_cols, minutes=2, suffix="2m")
@@ -75,27 +68,27 @@ class FeaturesEngineeringV1(FeaturesEngineering):
 
         df = self.__delta_zscore(df, diff_ratio_cols)
 
-        #df = self.__rolling_p50(df, percentile_cols, self.window_size_5m)
-        #df = self.__rolling_p50(df, percentile_cols, self.window_size_10m)
-        #df = self.__rolling_p50(df, percentile_cols, self.window_size_30m)
-        #df = self.__rolling_p50(df, percentile_cols, self.window_size_1h)
-        #df = self.__rolling_p50(df, percentile_cols, self.window_size_6h)
-        #df = self.__rolling_p50(df, percentile_cols, self.window_size_12h)
-        #df = self.__rolling_p50(df, percentile_cols, self.window_size_1d)
-        #df = self.__rolling_p50(df, percentile_cols, self.window_size_7d)
-        #df = self.__rolling_p50(df, percentile_cols, self.window_size_15d)
-        #df = self.__rolling_p50(df, percentile_cols, self.window_size_30d)
+        # df = self.__rolling_p50(df, percentile_cols, self.window_size_5m)
+        # df = self.__rolling_p50(df, percentile_cols, self.window_size_10m)
+        # df = self.__rolling_p50(df, percentile_cols, self.window_size_30m)
+        # df = self.__rolling_p50(df, percentile_cols, self.window_size_1h)
+        # df = self.__rolling_p50(df, percentile_cols, self.window_size_6h)
+        # df = self.__rolling_p50(df, percentile_cols, self.window_size_12h)
+        # df = self.__rolling_p50(df, percentile_cols, self.window_size_1d)
+        # df = self.__rolling_p50(df, percentile_cols, self.window_size_7d)
+        # df = self.__rolling_p50(df, percentile_cols, self.window_size_15d)
+        # df = self.__rolling_p50(df, percentile_cols, self.window_size_30d)
 
-        #df = self.__rolling_p90(df, percentile_cols, self.window_size_5m)
-        #df = self.__rolling_p90(df, percentile_cols, self.window_size_10m)
-        #df = self.__rolling_p90(df, percentile_cols, self.window_size_30m)
-        #df = self.__rolling_p90(df, percentile_cols, self.window_size_1h)
-        #df = self.__rolling_p90(df, percentile_cols, self.window_size_6h)
-        #df = self.__rolling_p90(df, percentile_cols, self.window_size_12h)
-        #df = self.__rolling_p90(df, percentile_cols, self.window_size_1d)
-        #df = self.__rolling_p90(df, percentile_cols, self.window_size_7d)
-        #df = self.__rolling_p90(df, percentile_cols, self.window_size_15d)
-        #df = self.__rolling_p90(df, percentile_cols, self.window_size_30d)
+        # df = self.__rolling_p90(df, percentile_cols, self.window_size_5m)
+        # df = self.__rolling_p90(df, percentile_cols, self.window_size_10m)
+        # df = self.__rolling_p90(df, percentile_cols, self.window_size_30m)
+        # df = self.__rolling_p90(df, percentile_cols, self.window_size_1h)
+        # df = self.__rolling_p90(df, percentile_cols, self.window_size_6h)
+        # df = self.__rolling_p90(df, percentile_cols, self.window_size_12h)
+        # df = self.__rolling_p90(df, percentile_cols, self.window_size_1d)
+        # df = self.__rolling_p90(df, percentile_cols, self.window_size_7d)
+        # df = self.__rolling_p90(df, percentile_cols, self.window_size_15d)
+        # df = self.__rolling_p90(df, percentile_cols, self.window_size_30d)
 
         return df
 
@@ -170,7 +163,6 @@ class FeaturesEngineeringV1(FeaturesEngineering):
         for col in cols:
             df = df.with_columns(pl.col(col).shift(shift_steps).alias(f"{col}_lag_{suffix}"))
         return df
-
 
     def __rolling_p50(self, df: pl.DataFrame, cols: list[str], window_size: str) -> pl.DataFrame:
         for col in cols:

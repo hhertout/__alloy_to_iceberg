@@ -43,6 +43,11 @@ _sklearn_mae = _meter.create_gauge(
     description="Mean Absolute Error of sklearn model",
 )
 
+_sklearn_mape = _meter.create_gauge(
+    "ml.training.sklearn.mape",
+    description="Mean Absolute Percentage Error of sklearn model",
+)
+
 _sklearn_rmse = _meter.create_gauge(
     "ml.training.sklearn.rmse",
     description="Root Mean Squared Error of sklearn model",
@@ -61,6 +66,11 @@ _pytorch_mae = _meter.create_gauge(
 _pytorch_rmse = _meter.create_gauge(
     "ml.training.pytorch.rmse",
     description="Root Mean Squared Error of pytorch model",
+)
+
+_pytorch_mape = _meter.create_gauge(
+    "ml.training.pytorch.mape",
+    description="Mean Absolute Percentage Error of pytorch model",
 )
 
 
@@ -141,6 +151,7 @@ def main() -> None:
         _sklearn_time.set(rand_forest_metrics["training_time_seconds"], attributes=rf_attributes)
         _sklearn_mae.set(rand_forest_metrics["mae"], attributes=rf_attributes)
         _sklearn_rmse.set(rand_forest_metrics["rmse"], attributes=rf_attributes)
+        _sklearn_mape.set(rand_forest_metrics["mape"], attributes=rf_attributes)
 
     if models_settings.xgboost.enabled:
         # Xgboost
@@ -153,6 +164,7 @@ def main() -> None:
         _sklearn_time.set(xgboost_metrics["training_time_seconds"], attributes=xgb_attributes)
         _sklearn_mae.set(xgboost_metrics["mae"], attributes=xgb_attributes)
         _sklearn_rmse.set(xgboost_metrics["rmse"], attributes=xgb_attributes)
+        _sklearn_mape.set(xgboost_metrics["mape"], attributes=xgb_attributes)
 
     if models_settings.prophet.enabled:
         log.info("Training Prophet model...")
@@ -164,6 +176,7 @@ def main() -> None:
         _sklearn_time.set(prophet_metrics["training_time_seconds"], attributes=prophet_attributes)
         _sklearn_mae.set(prophet_metrics["mae"], attributes=prophet_attributes)
         _sklearn_rmse.set(prophet_metrics["rmse"], attributes=prophet_attributes)
+        _sklearn_mape.set(xgboost_metrics["mape"], attributes=xgb_attributes)
 
     if models_settings.pytorch.enabled:
         log.info("Training PyTorch LSTM model...")
@@ -175,6 +188,7 @@ def main() -> None:
         _pytorch_time.set(pytorch_metrics["training_time_seconds"], attributes=pt_attributes)
         _pytorch_mae.set(pytorch_metrics["mae"], attributes=pt_attributes)
         _pytorch_rmse.set(pytorch_metrics["rmse"], attributes=pt_attributes)
+        _pytorch_mape.set(pytorch_metrics["mape"], attributes=pt_attributes)
 
     log.info("Saving model to Azure Storage...")
     log.info("Model generation process completed successfully.")

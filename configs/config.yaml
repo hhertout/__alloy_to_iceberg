@@ -20,7 +20,7 @@ limits:
 
 models:
   random_forest:
-    enabled: false
+    enabled: true
     n_estimators: 40
     max_depth: 8
     min_samples_split: 7
@@ -42,7 +42,7 @@ models:
     n_jobs: -1
     verbosity: 0
   prophet:
-    enabled: false
+    enabled: true
     seasonality_mode: additive
     changepoint_prior_scale: 0.05
     seasonality_prior_scale: 10.0
@@ -50,7 +50,7 @@ models:
     weekly_seasonality: true
     daily_seasonality: true
   pytorch:
-    enabled: true
+    enabled: false
     device: auto  # auto|cpu|mps|cuda
     ensemble_runs: 1  # increase to 3+ for best quality in production
     sequence_length: 1440  # 1 day of minute-level data = 1440 minutes

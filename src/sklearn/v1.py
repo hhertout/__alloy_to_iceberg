@@ -4,7 +4,7 @@ import numpy as np
 import polars as pl
 from numpy.typing import NDArray
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error, mean_squared_error
 from xgboost import XGBRegressor
 
 from configs.base import load_limits_settings, load_model_settings
@@ -40,12 +40,14 @@ def __rand_forest_train(
 
     mae = mean_absolute_error(y_test, predictions)
     rmse = np.sqrt(mean_squared_error(y_test, predictions))
+    mape = mean_absolute_percentage_error(y_test, predictions)
     training_time = time.time() - start
     metrics = {
         "features_number": X_train.shape[1],
         "training_time_seconds": training_time,
         "mae": mae,
         "rmse": rmse,
+        "mape": mape,
     }
 
     return model, metrics
@@ -118,12 +120,14 @@ def sklearn_train_xgboost(df: pl.DataFrame) -> tuple[object, dict[str, float]]:
 
     mae = mean_absolute_error(y_test, predictions)
     rmse = np.sqrt(mean_squared_error(y_test, predictions))
+    mape = mean_absolute_percentage_error(y_test, predictions)
     training_time = time.time() - start
     metrics = {
         "features_number": X_train.shape[1],
         "training_time_seconds": training_time,
         "mae": mae,
         "rmse": rmse,
+        "mape": mape,
     }
 
     return model, metrics
