@@ -26,6 +26,17 @@ prometheus.remote_write "prom" {
   }
 }
 
+// ─── Redpanda internal metrics ───
+prometheus.scrape "redpanda" {
+  targets = [{
+    __address__ = "redpanda:9644",
+  }]
+  metrics_path    = "/public_metrics"
+  forward_to      = [prometheus.remote_write.prom.receiver]
+  scrape_interval = "15s"
+  job_name        = "redpanda"
+}
+
 // ─── OpenTelemetry: receive OTLP from the Python app ───
 otelcol.receiver.otlp "default" {
   grpc { endpoint = "0.0.0.0:4317" }

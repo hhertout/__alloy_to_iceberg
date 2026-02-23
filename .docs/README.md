@@ -9,6 +9,7 @@
 | [architecture.md](./architecture.md) | Project architecture |
 | [runbook.md](./runbook.md) | Operational procedures |
 | [qa.md](./qa.md) | Quality assurance |
+| [real-time-prediction.md](./real-time-prediction.md) | Real-time streaming prediction architecture |
 
 ## Quick start
 
