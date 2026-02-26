@@ -7,6 +7,50 @@ grafana:
   url: http://localhost:3000
   api_key: $GRAFANA_SA_TOKEN
 
+# Specs for the integration pipeline
+integration:
+  # Number of rows to process in each batch before writing to storage
+  batch_size: 1000
+  # Kafka configuration for consuming OpenTelemetry data
+  kafka:
+    # Kafka broker address (e.g., localhost:9092)
+    broker: localhost:19092
+    # Kafka topic to consume from
+    topic: monitoring
+    # Kafka consumer group ID
+    group_id: torch-group-1
+  # Iceberg configuration for storing processed data
+  iceberg:
+    # Iceberg catalog configuration
+    namespace: obs
+    catalog_name: test_catalog
+    database_name: internal_monitoring
+    postgres:
+      connection_string: $POSTGRESQL_CONNECTION_STRING
+      ssl_enabled: false
+    # Polaris client configuration
+    #polaris:
+    #  url: $POLARIS_URL
+    #  token: $POLARIS_TOKEN
+  # Metrics processing configuration
+  metrics:
+    include:
+        - name: redpanda_kafka_request_latency_seconds_sum
+          resource_attributes:
+             service.name: redpanda
+          attributes:
+            redpanda_request: produce
+        - name: redpanda_kafka_quotas_client_quota_throttle_time_bucket
+          resource_attributes:
+             service.instance.id: "redpanda.*"
+  # Logs processing configuration
+  logs:
+    include:
+      - service_name: redpanda
+        level: info
+        contains: ".*ml_obs.*"
+
+# Model training configuration and limits
 limits:
   # Number of days to query data and push to storage (yesterday + limits.offset_days). 
   # offset_days: 0 # defaults 0
@@ -73,6 +117,7 @@ storage:
   #   aws_access_key_id: $AWS_ACCESS_KEY_ID
   #   aws_secret_access_key: $AWS_SECRET_ACCESS_KEY
   #   aws_session_token: $AWS_SESSION_TOKEN
+  #   aws_regoin: $AWS_REGION
   #   file_prefix: chunk
   #   file_identifier: dataframe
   #   chunk_folder: chunks
@@ -80,6 +125,7 @@ storage:
 
   # Azure storage configuration
   azure:
+    account_name: $AZURE_STORAGE_ACCOUNT_NAME
     container_name: $AZURE_STORAGE_CONTAINER_NAME
     connection_string: $AZURE_STORAGE_CONNECTION_STRING
     file_prefix: chunk
@@ -89,8 +135,9 @@ storage:
 
 # OpenTelemetry configuration
 telemetry:
-  endpoint: http://localhost:4317
+  endpoint: $OTEL_EXPORTER_OTLP_ENDPOINT
+  # OpenTelemetry attributes configuration for metrics and logs
+  env: $OTEL_ENV
   service_name: dl_obs
   service_namespace: dl_obs
-  env: dev
   service_version: 0.1.0

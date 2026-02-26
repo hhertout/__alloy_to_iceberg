@@ -10,6 +10,7 @@
 | [runbook.md](./runbook.md) | Operational procedures |
 | [qa.md](./qa.md) | Quality assurance |
 | [real-time-prediction.md](./real-time-prediction.md) | Real-time streaming prediction architecture |
+| [polaris.md](./polaris.md) | Apache Polaris user manual (Iceberg catalog) |
 
 ## Quick start
 
@@ -33,3 +34,5 @@ make validate
 | Prometheus | http://localhost:9090 | - |
 | Alloy | http://localhost:12345 | - |
 | Loki | http://localhost:3100 | - |
+| Polaris API | http://localhost:8181 | root / s3cr3t |
+| Polaris management | http://localhost:8182 | - |

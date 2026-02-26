@@ -10,10 +10,10 @@ from dotenv import load_dotenv
 
 from configs.base import load_limits_settings, load_storage_type
 from configs.constants import OUTPUT_DIR, DatasourceKind
-from src.data.azure import AzureInterface
-from src.data.grafana import GrafanaDao
-from src.data.grafana_dto import TimeSeriesData
-from src.data.s3 import S3Interface
+from src.client.azure import AzureInterface
+from src.client.grafana import GrafanaDao
+from src.client.grafana_dto import TimeSeriesData
+from src.client.s3 import S3Interface
 from src.dataviz.quick_preview import visualize_df
 from src.processing.data_processing import Processor
 from src.processing.merge_dataframes import merge_dataframes

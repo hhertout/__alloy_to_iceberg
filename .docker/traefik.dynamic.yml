@@ -1,0 +1,12 @@
+tls:
+  # Wildcard certificate for *.changeme.com.
+  # Replace cert.pem / key.pem with real certificates before going to production.
+  certificates:
+    - certFile: /certs/cert.pem
+      keyFile:  /certs/key.pem
+
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/cert.pem
+        keyFile:  /certs/key.pem

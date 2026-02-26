@@ -13,7 +13,7 @@ services:
   alloy:
     image: grafana/alloy:latest
     container_name: alloy
-    command: ["run", "/etc/alloy/conf.alloy"]
+    command: ["run", "--server.http.listen-addr=0.0.0.0:12345", "/etc/alloy/conf.alloy"]
     ports:
       - "12345:12345"
       - "4317:4317"   # OTLP gRPC
@@ -97,8 +97,41 @@ services:
     environment:
       - KAFKA_BROKERS=redpanda:9092
 
+  polaris:
+    image: apache/polaris:latest
+    container_name: polaris
+    ports:
+      - "8181:8181"   # Catalog REST API
+      - "8182:8182"   # Management (health, metrics)
+    environment:
+      - POLARIS_BOOTSTRAP_CREDENTIALS=POLARIS,root,s3cr3t
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8182/q/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  postgres:
+    image: postgres:17
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   grafana_data:
   prometheus_data:
   loki_data:
   redpanda_data:
+  postgres_data:

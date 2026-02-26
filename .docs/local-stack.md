@@ -40,6 +40,7 @@ This document describes how to set up and use the local observability stack for 
 | Prometheus | 9090 | Metrics database | http://localhost:9090 |
 | Loki | 3100 | Logs database | - |
 | cAdvisor | 8080 | Container metrics exporter | http://localhost:8080 |
+| Polaris | 8181 / 8182 | Iceberg catalog (API / management) | - |
 
 ## Quick start
 

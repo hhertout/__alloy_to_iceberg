@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 from configs.base import load_model_settings
 from configs.constants import TRAINING_TIMEWINDOW_DAYS
-from src.data.azure import AzureInterface
+from src.client.azure import AzureInterface
 from src.features.v1 import FeaturesEngineeringV1
 from src.prophet.v1 import prophet_train_v1
 from src.pytorch.v1 import pytorch_train_lstm

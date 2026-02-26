@@ -6,7 +6,7 @@ from urllib3.util.retry import Retry
 
 from configs.base import load_grafana_settings
 from configs.constants import DatasourceKind, Time
-from src.data.grafana_dto import (
+from src.client.grafana_dto import (
     GrafanaDatasource,
     GrafanaQuery,
     GrafanaQueryRequest,

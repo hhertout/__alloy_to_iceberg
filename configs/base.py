@@ -75,6 +75,7 @@ def _require_non_empty(value: str | None, field_name: str) -> str:
 class AzureSettings(BaseModel):
     connection_string: str
     container_name: str
+    account_name: str | None = None
     file_prefix: str = DEFAULT_AZ_FILE_PREFIX
     file_identifier: str = DEFAULT_AZ_FILE_IDENTIFIER
     file_extension: str = DEFAULT_AZ_FILE_EXTENSION
@@ -165,6 +166,59 @@ class ModelSettings(BaseModel):
     xgboost: XGBoostSettings = XGBoostSettings()
     prophet: ProphetSettings = ProphetSettings()
     pytorch: PytorchSettings = PytorchSettings()
+
+
+class KafkaSettings(BaseModel):
+    broker: str
+    topic: str
+    group_id: str
+
+
+class PolarisSettings(BaseModel):
+    url: str
+    token: str
+
+
+class PostgresSettings(BaseModel):
+    connection_string: str
+    ssl_enabled: bool = False
+
+
+class IcebergSettings(BaseModel):
+    catalog_name: str
+    database_name: str
+    namespace: str | None = None
+    table_name: str | None = None
+    polaris: PolarisSettings | None = None
+    postgres: PostgresSettings | None = None
+
+
+class MetricFilterSettings(BaseModel):
+    name: str
+    resource_attributes: dict[str, str] = {}
+    attributes: dict[str, str] = {}
+
+
+class MetricsSettings(BaseModel):
+    include: list[MetricFilterSettings] = []
+
+
+class LogFilterSettings(BaseModel):
+    service_name: str | None = None
+    level: str | None = None
+    contains: str | None = None
+
+
+class LogsIntegrationSettings(BaseModel):
+    include: list[LogFilterSettings] = []
+
+
+class IntegrationSettings(BaseModel):
+    batch_size: int = 1000
+    kafka: KafkaSettings
+    iceberg: IcebergSettings
+    metrics: MetricsSettings = MetricsSettings()
+    logs: LogsIntegrationSettings = LogsIntegrationSettings()
 
 
 class GrafanaSettings(BaseModel):
@@ -299,6 +353,113 @@ def load_model_settings(config: dict[str, Any] | None = None) -> ModelSettings:
     )
 
 
+def load_integration_settings(config: dict[str, Any] | None = None) -> IntegrationSettings:
+    integration_config: dict[str, Any]
+    if config is None:
+        project_config = _read_config_file()
+        integration_config = project_config.get("integration", {})
+    elif "integration" in config:
+        integration_config = config.get("integration", {})
+    else:
+        integration_config = config
+
+    kafka_config = integration_config.get("kafka", {})
+    kafka_settings = KafkaSettings(
+        broker=_require_non_empty(
+            _first_non_empty(
+                _resolve_env_reference(kafka_config.get("broker")),
+                _env("KAFKA_BROKER"),
+            ),
+            "integration.kafka.broker",
+        ),
+        topic=_require_non_empty(
+            _first_non_empty(
+                _resolve_env_reference(kafka_config.get("topic")),
+                _env("KAFKA_TOPIC"),
+            ),
+            "integration.kafka.topic",
+        ),
+        group_id=_require_non_empty(
+            _first_non_empty(
+                _resolve_env_reference(kafka_config.get("group_id")),
+                _env("KAFKA_GROUP_ID"),
+            ),
+            "integration.kafka.group_id",
+        ),
+    )
+
+    iceberg_config = integration_config.get("iceberg", {})
+    polaris_config = iceberg_config.get("polaris")
+    polaris_settings: PolarisSettings | None = None
+    if polaris_config is not None:
+        polaris_settings = PolarisSettings(
+            url=_require_non_empty(
+                _resolve_env_reference(polaris_config.get("url")),
+                "integration.iceberg.polaris.url",
+            ),
+            token=_require_non_empty(
+                _resolve_env_reference(polaris_config.get("token")),
+                "integration.iceberg.polaris.token",
+            ),
+        )
+    postgres_config = iceberg_config.get("postgres")
+    postgres_settings: PostgresSettings | None = None
+    if postgres_config is not None:
+        postgres_settings = PostgresSettings(
+            connection_string=_require_non_empty(
+                _resolve_env_reference(postgres_config.get("connection_string")),
+                "integration.iceberg.postgres.connection_string",
+            ),
+            ssl_enabled=postgres_config.get("ssl_enabled", False),
+        )
+    iceberg_settings = IcebergSettings(
+        catalog_name=_require_non_empty(
+            iceberg_config.get("catalog_name"), "integration.iceberg.catalog_name"
+        ),
+        database_name=_require_non_empty(
+            iceberg_config.get("database_name"), "integration.iceberg.database_name"
+        ),
+        namespace=iceberg_config.get("namespace"),
+        table_name=iceberg_config.get("table_name"),
+        polaris=polaris_settings,
+        postgres=postgres_settings,
+    )
+
+    batch_size = integration_config.get("batch_size", 1000)
+
+    metrics_raw: list[dict] = (integration_config.get("metrics") or {}).get("include") or []
+    metrics_settings = MetricsSettings(
+        include=[
+            MetricFilterSettings(
+                name=_require_non_empty(m.get("name"), "integration.metrics.include[].name"),
+                resource_attributes=m.get("resource_attributes") or {},
+                attributes=m.get("attributes") or {},
+            )
+            for m in metrics_raw
+        ]
+    )
+
+    logs_raw: list[dict] = (integration_config.get("logs") or {}).get("include") or []
+    logs_settings = LogsIntegrationSettings(
+        include=[
+            LogFilterSettings(
+                service_name=log.get("service_name"),
+                level=log.get("level"),
+                contains=log.get("contains"),
+            )
+            for log in logs_raw
+        ]
+    )
+
+    return IntegrationSettings(
+        batch_size=batch_size,
+        kafka=kafka_settings,
+        iceberg=iceberg_settings,
+        metrics=metrics_settings,
+        logs=logs_settings,
+    )
+
+
 def load_grafana_settings(config: dict[str, Any] | None = None) -> GrafanaSettings:
     grafana_config: dict[str, Any]
     if config is None:
@@ -342,6 +503,10 @@ def load_azure_settings(config: dict[str, Any] | None = None) -> AzureSettings:
         _resolve_env_reference(azure_config.get("container_name")),
         _env("AZURE_STORAGE_CONTAINER_NAME"),
     )
+    account_name = _first_non_empty(
+        _resolve_env_reference(azure_config.get("account_name")),
+        _env("AZURE_STORAGE_ACCOUNT_NAME"),
+    )
 
     return AzureSettings(
         connection_string=_require_non_empty(
@@ -349,6 +514,7 @@ def load_azure_settings(config: dict[str, Any] | None = None) -> AzureSettings:
             "storage.azure.connection_string",
         ),
         container_name=_require_non_empty(container_name, "storage.azure.container_name"),
+        account_name=account_name,
         file_prefix=azure_config.get("file_prefix", DEFAULT_AZ_FILE_PREFIX),
         file_identifier=azure_config.get("file_identifier", DEFAULT_AZ_FILE_IDENTIFIER),
         file_extension=azure_config.get("file_extension", DEFAULT_AZ_FILE_EXTENSION),
@@ -406,6 +572,24 @@ def load_s3_settings(config: dict[str, Any] | None = None) -> S3Settings:
         file_extension=s3_config.get("file_extension", DEFAULT_S3_FILE_EXTENSION),
         chunk_folder=s3_config.get("chunk_folder", "chunks"),
         models_folder=s3_config.get("models_folder", "models"),
+    )
+
+
+def load_storage_settings(config: dict[str, Any] | None = None) -> AzureSettings | S3Settings:
+    if config is None:
+        project_config = _read_config_file()
+        storage_config = project_config.get("storage", {})
+    elif "storage" in config:
+        storage_config = config.get("storage", {})
+    else:
+        storage_config = config
+
+    if "azure" in storage_config:
+        return load_azure_settings({"storage": storage_config})
+    if "s3" in storage_config:
+        return load_s3_settings({"storage": storage_config})
+    raise ValueError(
+        "No storage configuration found in config.yaml under 'storage.azure' or 'storage.s3'"
     )
 
 

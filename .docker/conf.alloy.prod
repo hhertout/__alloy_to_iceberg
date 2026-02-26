@@ -1,0 +1,58 @@
+// Production Alloy configuration.
+// ─── Redpanda internal metrics ───────────────────────────────────────────
+prometheus.scrape "redpanda" {
+  targets = [{
+    __address__ = "redpanda:9644",
+  }]
+  metrics_path    = "/public_metrics"
+  forward_to      = [prometheus.relabel.add_labels.receiver]
+  scrape_interval = "30s"
+  job_name        = "redpanda"
+}
+
+// ─── cAdvisor container metrics ──────────────────────────────────────────
+prometheus.scrape "cadvisor" {
+  targets = [{
+    __address__ = "cadvisor:8080",
+  }]
+  forward_to      = [prometheus.relabel.add_labels.receiver]
+  scrape_interval = "30s"
+  job_name        = "cadvisor"
+}
+
+// ─── Relabel: add host and service_namespace to all metrics ──────────────
+prometheus.relabel "add_labels" {
+  forward_to = [otelcol.receiver.prometheus.default.receiver]
+
+  rule {
+    target_label = "host"
+    replacement  = env("HOST")
+  }
+
+  rule {
+    target_label = "service_namespace"
+    replacement  = "changeme"
+  }
+}
+
+// ─── Convert Prometheus metrics to OTLP and export ───────────────────────
+otelcol.receiver.prometheus "default" {
+  output {
+    metrics = [otelcol.exporter.otlp.default.input]
+  }
+}
+
+otelcol.exporter.otlp "default" {
+  client {
+    endpoint = env("OTLP_ENDPOINT")
+
+    tls {
+      insecure_skip_verify = true
+    }
+  }
+
+  sending_queue {
+    enabled    = true
+    queue_size = 1000
+  }
+}

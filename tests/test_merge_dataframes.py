@@ -1,7 +1,7 @@
 import polars as pl
 import pytest
 
-from src.data.grafana_dto import TimeSeriesData
+from src.client.grafana_dto import TimeSeriesData
 from src.processing.merge_dataframes import (
     _get_agg_expr,
     _get_clean_dataframes,

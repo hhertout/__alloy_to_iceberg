@@ -3,7 +3,7 @@ from typing import Protocol
 import polars as pl
 
 from configs.constants import DEFAULT_AGG_INTERVAL_MS
-from src.data.grafana_dto import TimeSeriesData
+from src.client.grafana_dto import TimeSeriesData
 from utils.telemetry import get_default_attributes
 
 

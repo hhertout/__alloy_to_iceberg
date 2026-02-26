@@ -1,5 +1,5 @@
 from configs.constants import DatasourceKind
-from src.data.grafana_dto import (
+from src.client.grafana_dto import (
     GrafanaDatasource,
     GrafanaQuery,
     GrafanaQueryRequest,

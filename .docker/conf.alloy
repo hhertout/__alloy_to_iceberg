@@ -32,7 +32,7 @@ prometheus.scrape "redpanda" {
     __address__ = "redpanda:9644",
   }]
   metrics_path    = "/public_metrics"
-  forward_to      = [prometheus.remote_write.prom.receiver]
+  forward_to      = [prometheus.remote_write.prom.receiver, otelcol.receiver.prometheus.default.receiver]
   scrape_interval = "15s"
   job_name        = "redpanda"
 }
@@ -61,4 +61,38 @@ otelcol.exporter.loki "default" {
 
 otelcol.exporter.prometheus "default" {
   forward_to = [prometheus.remote_write.prom.receiver]
+}
+
+otelcol.receiver.prometheus "default" {
+  output {
+    metrics = [otelcol.processor.batch.kafka.input]
+  }
+}
+
+otelcol.processor.batch "kafka" {
+  output {
+    metrics = [otelcol.exporter.kafka.default.input]
+  }
+}
+
+otelcol.exporter.kafka "default" {
+  brokers          = ["redpanda:9092"]
+  protocol_version = "2.0.0"
+
+  metrics {
+    topic = "monitoring"
+    encoding = "otlp_json"
+  }
+
+  sending_queue {
+    enabled = true
+    queue_size = 1000
+  }
+
+  retry_on_failure {
+    enabled = true
+    initial_interval = "10s"
+    max_interval = "30s"
+    max_elapsed_time = "10m"
+  }
 }

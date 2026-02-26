@@ -1,7 +1,7 @@
 import polars as pl
 
 from scripts.push_to_blob import extract_loki_queries, extract_promtheus_queries, process_data
-from src.data.grafana_dto import TimeSeriesData
+from src.client.grafana_dto import TimeSeriesData
 from src.processing.convert_df import convert_dataframes
 
 # ── extract_*_queries ──

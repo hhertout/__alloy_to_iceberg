@@ -1,0 +1,188 @@
+# Production stack: Traefik + Redpanda + Polaris + Alloy + cAdvisor
+#
+# Prerequisites:
+#   1. Generate TLS certificates: bash .docker/generate-certs.sh
+#   2. Replace changeme.com with your actual domain in labels and
+#      Redpanda's --advertise-kafka-addr flag.
+#   3. Replace POLARIS_BOOTSTRAP_CREDENTIALS with a secure secret.
+#
+# Start:  docker compose -f docker-compose.prod.yml up -d
+# Stop:   docker compose -f docker-compose.prod.yml down
+
+networks:
+  prod:
+    # Fixed name so Traefik's docker provider always resolves it,
+    # regardless of the compose project name.
+    name: prod
+    driver: bridge
+
+volumes:
+  redpanda_data:
+
+services:
+
+  # ── Traefik ──────────────────────────────────────────────────────────────
+  traefik:
+    image: traefik:v3
+    container_name: traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"      # HTTP  → redirected to HTTPS
+      - "443:443"    # HTTPS → Polaris, Redpanda Schema Registry
+      - "9092:9092"  # Kafka → TCP/TLS
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./.docker/traefik.prod.yml:/etc/traefik/traefik.yml:ro
+      - ./.docker/traefik.dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - ./.docker/certs:/certs:ro
+    networks:
+      - prod
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/ping || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ── Redpanda ─────────────────────────────────────────────────────────────
+  redpanda:
+    image: redpandadata/redpanda:latest
+    container_name: redpanda
+    restart: unless-stopped
+    command:
+      - redpanda
+      - start
+      # Two listeners: internal (plain TCP within Docker) and external
+      # (routed through Traefik with TLS termination).
+      - --kafka-addr          internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://redpanda.changeme.com:9092
+      - --pandaproxy-addr     internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://redpanda:8082,external://redpanda.changeme.com:443
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr             redpanda:33145
+      - --advertise-rpc-addr   redpanda:33145
+      - --overprovisioned
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --default-log-level=warn
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    networks:
+      - prod
+    labels:
+      - "traefik.enable=true"
+
+      # --- Kafka (TCP/TLS on port 9092) ---
+      # Traefik terminates TLS via SNI, forwards plain TCP to redpanda:9092.
+      - "traefik.tcp.routers.kafka.rule=HostSNI(`redpanda.changeme.com`)"
+      - "traefik.tcp.routers.kafka.entrypoints=kafka"
+      - "traefik.tcp.routers.kafka.tls=true"
+      - "traefik.tcp.routers.kafka.service=kafka"
+      - "traefik.tcp.services.kafka.loadbalancer.server.port=9092"
+
+      # --- Schema Registry (HTTPS on port 443) ---
+      - "traefik.http.routers.schema-registry.rule=Host(`redpanda.changeme.com`)"
+      - "traefik.http.routers.schema-registry.entrypoints=websecure"
+      - "traefik.http.routers.schema-registry.tls=true"
+      - "traefik.http.routers.schema-registry.service=schema-registry"
+      - "traefik.http.services.schema-registry.loadbalancer.server.port=8081"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ── Polaris ───────────────────────────────────────────────────────────────
+  polaris:
+    image: apache/polaris:latest
+    container_name: polaris
+    restart: unless-stopped
+    environment:
+      # Replace with a secure client_id:client_secret before deploying.
+      - POLARIS_BOOTSTRAP_CREDENTIALS=POLARIS,root,s3cr3t
+    networks:
+      - prod
+    labels:
+      - "traefik.enable=true"
+
+      # --- Polaris Catalog REST API (HTTPS on port 443) ---
+      - "traefik.http.routers.polaris.rule=Host(`polaris.changeme.com`)"
+      - "traefik.http.routers.polaris.entrypoints=websecure"
+      - "traefik.http.routers.polaris.tls=true"
+      - "traefik.http.routers.polaris.service=polaris"
+      - "traefik.http.services.polaris.loadbalancer.server.port=8181"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8182/q/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ── cAdvisor ──────────────────────────────────────────────────────────────
+  # Exposes container resource metrics (CPU, memory, network) for Alloy to
+  # scrape. Not exposed via Traefik — internal only.
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - prod
+
+  # ── Alloy ─────────────────────────────────────────────────────────────────
+  # Collects metrics from cAdvisor and Redpanda, receives OTLP from the
+  # Python app, and forwards everything to the Kafka monitoring topic.
+  # Not exposed via Traefik — internal only.
+  # OTLP ports (4317/4318) are reachable from other containers on the prod
+  # network. Expose them on the host if the app runs outside Docker.
+  alloy:
+    image: grafana/alloy:latest
+    container_name: alloy
+    restart: unless-stopped
+    command: ["run", "--server.http.listen-addr=0.0.0.0:12345", "/etc/alloy/conf.alloy"]
+    environment:
+      - HOST=${HOST}
+      - OTLP_ENDPOINT=https://collector.changeme.com:4317
+    volumes:
+      - ./.docker/conf.alloy.prod:/etc/alloy/conf.alloy
+    networks:
+      - prod
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      cadvisor:
+        condition: service_started
+
+  # ── Redpanda Console ──────────────────────────────────────────────────────
+  # Web UI for Redpanda. Exposed at console.redpanda.changeme.com behind
+  # Traefik basic auth (admin / changeme — replace before deploying).
+  # To regenerate the hash: openssl passwd -apr1 <password>
+  # then escape every $ as $$ in the label value below.
+  redpanda-console:
+    image: redpandadata/console:latest
+    container_name: redpanda-console
+    restart: unless-stopped
+    environment:
+      - KAFKA_BROKERS=redpanda:9092
+    networks:
+      - prod
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+
+      # --- Basic auth middleware ---
+      - "traefik.http.middlewares.console-auth.basicauth.users=admin:$$apr1$$wyLNA4li$$CENvkHN29g/HlsVzW2SMs."
+
+      # --- Console UI (HTTPS on port 443) ---
+      - "traefik.http.routers.console.rule=Host(`console.redpanda.changeme.com`)"
+      - "traefik.http.routers.console.entrypoints=websecure"
+      - "traefik.http.routers.console.tls=true"
+      - "traefik.http.routers.console.middlewares=console-auth"
+      - "traefik.http.routers.console.service=console"
+      - "traefik.http.services.console.loadbalancer.server.port=8080"

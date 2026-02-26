@@ -1,6 +1,6 @@
 import polars as pl
 
-from src.data.grafana_dto import TimeSeriesData
+from src.client.grafana_dto import TimeSeriesData
 from utils.logging import get_logger
 
 
