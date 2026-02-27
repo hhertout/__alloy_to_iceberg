@@ -37,7 +37,7 @@ def _make_processor(includes: list[MetricFilterSettings]) -> IntegrationPipeline
 def _make_df(rows: list[dict]) -> pl.DataFrame:
     """Build a minimal DataFrame matching the processor schema."""
     schema = {
-        "timestamp": pl.Datetime("ns", "UTC"),
+        "timestamp": pl.Datetime("us", "UTC"),
         "__name__": pl.String,
         "value": pl.Float64,
         "service_name": pl.String,
@@ -268,7 +268,7 @@ class TestProcessMessage:
     def test_schema_matches_expected(self, no_filter_processor, fixture_bytes) -> None:
         df = no_filter_processor.process_message(fixture_bytes)
         assert df.schema == {
-            "timestamp": pl.Datetime("ns", "UTC"),
+            "timestamp": pl.Datetime("us", "UTC"),
             "__name__": pl.String,
             "value": pl.Float64,
             "service_name": pl.String,
@@ -290,7 +290,7 @@ class TestProcessMessage:
 
     def test_timestamps_are_utc_datetime(self, no_filter_processor, fixture_bytes) -> None:
         df = no_filter_processor.process_message(fixture_bytes)
-        assert df["timestamp"].dtype == pl.Datetime("ns", "UTC")
+        assert df["timestamp"].dtype == pl.Datetime("us", "UTC")
         assert df["timestamp"].null_count() == 0
 
     def test_known_metric_row_count_and_value(self, no_filter_processor, fixture_bytes) -> None:

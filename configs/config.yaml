@@ -10,7 +10,7 @@ grafana:
 # Specs for the integration pipeline
 integration:
   # Number of rows to process in each batch before writing to storage
-  batch_size: 1000
+  batch_size: 10000
   # Kafka configuration for consuming OpenTelemetry data
   kafka:
     # Kafka broker address (e.g., localhost:9092)
