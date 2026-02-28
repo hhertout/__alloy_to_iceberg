@@ -27,12 +27,12 @@ class CatalogClient:
         if isinstance(self._backend_settings, AzureSettings):
             args = {
                 "catalog-name": self._settings.iceberg.catalog_name,
-                "warehouse": f"abfs://{self._backend_settings.container_name}@{self._backend_settings.account_name}.dfs.core.windows.net/warehouse",
+                "warehouse": f"abfs://{self._backend_settings.container_name}@{self._backend_settings.account_name}.dfs.core.windows.net/{self._settings.iceberg.warehouse_path}",
                 "adls.connection-string": self._backend_settings.connection_string,
             }
         else:
             args = {
-                "warehouse": f"s3://{self._backend_settings.bucket_name}/warehouse",
+                "warehouse": f"s3://{self._backend_settings.bucket_name}/{self._settings.iceberg.warehouse_path}",
                 "s3.endpoint": self._backend_settings.endpoint_url,
                 "s3.access-key-id": self._backend_settings.aws_access_key_id,
                 "s3.secret-access-key": self._backend_settings.aws_secret_access_key,
@@ -62,10 +62,18 @@ class CatalogClient:
                     raise e
 
     def create_tables(self) -> None:
-        identifier = f"{self._settings.iceberg.namespace}.otlp_metrics"
+        metrics_table_name = "otlp_metrics"
+        identifier = f"{self._settings.iceberg.namespace}.{metrics_table_name}"
         properties = {"write.parquet.compression-codec": "zstd"}
         try:
-            self.metrics_table = self.catalog.create_table(identifier, schema=METRICS_SCHEMA, properties=properties)
+            self.metrics_table = self.catalog.create_table(
+                identifier, schema=METRICS_SCHEMA, properties=properties
+            )
+            self.logs_table = self.catalog.create_table(
+                identifier=f"{self._settings.iceberg.namespace}.oltp_logs",
+                schema=METRICS_SCHEMA,
+                properties=properties,
+            )
         except Exception as e:
             if "already exists" in str(e):
                 self.metrics_table = self.catalog.load_table(identifier)

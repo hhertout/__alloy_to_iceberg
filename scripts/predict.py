@@ -19,6 +19,7 @@ def main() -> None:
     finally:
         shutdown_telemetry()
 
+
 if __name__ == "__main__":
     setup_telemetry()
     main()

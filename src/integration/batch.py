@@ -35,7 +35,9 @@ class Batch:
         self.size_bytes += df.estimated_size(unit="mb")
 
         _batch_metric_size_histogram.record(self.size, attributes=get_default_attributes())
-        _batch_metric_size_bytes_histogram.record(self.size_bytes, attributes=get_default_attributes())
+        _batch_metric_size_bytes_histogram.record(
+            self.size_bytes, attributes=get_default_attributes()
+        )
 
     def flush(self, client: CatalogClient) -> None:
         data = self.data
@@ -54,7 +56,9 @@ class Batch:
             self.size_bytes = 0
 
             _batch_metric_size_histogram.record(self.size, attributes=get_default_attributes())
-            _batch_metric_size_bytes_histogram.record(self.size_bytes, attributes=get_default_attributes())
+            _batch_metric_size_bytes_histogram.record(
+                self.size_bytes, attributes=get_default_attributes()
+            )
 
         except Exception as e:
             # Log the error and keep the batch for retry

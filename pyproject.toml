@@ -28,6 +28,7 @@ dependencies = [
     "confluent-kafka>=2.13.0",
     "opentelemetry-proto>=1.39.1",
     "pyarrow>=23.0.1",
+    "duckdb>=1.4.4",
 ]
 
 [dependency-groups]

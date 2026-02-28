@@ -1,5 +1,6 @@
-from confluent_kafka import Consumer, KafkaError
 import signal
+
+from confluent_kafka import Consumer, KafkaError
 from dotenv import load_dotenv
 
 from configs.base import (
@@ -25,11 +26,12 @@ def main() -> None:
             "bootstrap.servers": integration_settings.kafka.broker,
             "group.id": integration_settings.kafka.group_id,
             "auto.offset.reset": "earliest",
-            "enable.auto.commit": False,  # commit manuel après flush
+            "enable.auto.commit": False,
         }
     )
 
     shutdown = False
+
     def shutdown_gracefully(signum: int, _: object) -> None:
         nonlocal shutdown
         log.info("Received signal %s, shutting down gracefully...", signal.Signals(signum).name)
@@ -43,7 +45,6 @@ def main() -> None:
     signal.signal(signal.SIGINT, shutdown_gracefully)
 
     try:
-
         c_client = CatalogClient(integration_settings)
         c_client.load_catalog()
         c_client.create_namespace()
@@ -71,12 +72,6 @@ def main() -> None:
                 if value is None:
                     continue
                 response = processor.process_message(value)
-
-                # TODO: handle recording rules case
-                # for now it only receiving raw opentelemetry metrics, but some recording rules
-                # may be integrated in the dataset.
-                # It could have his own batch and table, or be processed in the same batch and same
-                # table and share the same storage/schema.
 
                 if len(response) > 0:
                     batch.add(response)

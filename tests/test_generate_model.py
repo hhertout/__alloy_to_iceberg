@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import polars as pl
 import pytest
 
-from scripts.generate_model import to_dataframe
+from scripts.train import to_dataframe
 from utils.fake_data import generate_fake_dataframe
 
 

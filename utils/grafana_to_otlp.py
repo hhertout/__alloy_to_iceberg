@@ -58,8 +58,7 @@ def convert_grafana_resp_to_otlp(
                 labels = frame.schema.fields[1].get("labels", {})
 
             dp_attrs = [
-                KeyValue(key=k, value=AnyValue(string_value=str(v)))
-                for k, v in labels.items()
+                KeyValue(key=k, value=AnyValue(string_value=str(v))) for k, v in labels.items()
             ]
 
             for ts, val in zip(timestamps, values, strict=False):
@@ -80,7 +79,8 @@ def convert_grafana_resp_to_otlp(
 
     resource = Resource(
         attributes=[
-            KeyValue(key=k, value=AnyValue(string_value=v)) for k,v in (resource_attrs or {}).items()
+            KeyValue(key=k, value=AnyValue(string_value=v))
+            for k, v in (resource_attrs or {}).items()
         ]
     )
 

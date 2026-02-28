@@ -1,11 +1,13 @@
 import datetime
+import signal
 import socket
 from time import sleep
-import signal
+from typing import Any
 
 from confluent_kafka import Producer
 from dotenv import load_dotenv
 from google.protobuf.json_format import MessageToJson
+from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceRequest
 
 from configs.base import ProducerQueriesSettings, load_integration_settings
 from configs.constants import DatasourceKind
@@ -16,7 +18,9 @@ from utils.logging import get_logger
 from utils.telemetry import setup_telemetry, shutdown_telemetry
 
 
-def get_data(queries_settings: ProducerQueriesSettings, interval_min: int, client: GrafanaDao, log: any) -> None:
+def get_data(
+    queries_settings: ProducerQueriesSettings, interval_min: int, client: GrafanaDao, log: Any
+) -> list[ExportMetricsServiceRequest]:
     """Retrieve data from Grafana based on the provided queries and time range."""
     results = []
     for datasource, queries in queries_settings.prometheus.items():
@@ -30,10 +34,16 @@ def get_data(queries_settings: ProducerQueriesSettings, interval_min: int, clien
                 datasource_uid=datasource_uid,
                 expr=entry.query,
                 from_time=from_time.timestamp(),
-                to_time=now.timestamp()
+                to_time=now.timestamp(),
             )
 
-            results.append(convert_grafana_resp_to_otlp(grafana_response=result, ref_id_to_name=entry.id, resource_attrs=entry.resource_attributes))
+            results.append(
+                convert_grafana_resp_to_otlp(
+                    grafana_response=result,
+                    ref_id_to_name=entry.id,
+                    resource_attrs=entry.resource_attributes,
+                )
+            )
 
     for datasource, queries in queries_settings.loki.items():
         for entry in queries:
@@ -46,25 +56,33 @@ def get_data(queries_settings: ProducerQueriesSettings, interval_min: int, clien
                 datasource_uid=datasource_uid,
                 expr=entry.query,
                 from_time=from_time.timestamp(),
-                to_time=now.timestamp()
+                to_time=now.timestamp(),
             )
 
-            results.append(convert_grafana_resp_to_otlp(grafana_response=result, ref_id_to_name=entry.id, resource_attrs=entry.resource_attributes))
+            results.append(
+                convert_grafana_resp_to_otlp(
+                    grafana_response=result,
+                    ref_id_to_name=entry.id,
+                    resource_attrs=entry.resource_attributes,
+                )
+            )
 
     return results
+
 
 def main() -> None:
     print_ascii_art()
     log = get_logger("metrics_producer")
     log.info("Starting metrics producer...")
     integration_settings = load_integration_settings()
-    conf = {
-        'bootstrap.servers': integration_settings.kafka.broker,
-        'client.id': socket.gethostname()
+    conf: dict[str, str | int | float | bool] = {
+        "bootstrap.servers": integration_settings.kafka.broker,
+        "client.id": socket.gethostname(),
     }
     producer = Producer(conf)
 
     shutdown = False
+
     def shutdown_gracefully(signum: int, _: object) -> None:
         nonlocal shutdown
         log.info("Received signal %s, shutting down gracefully...", signal.Signals(signum).name)
@@ -87,7 +105,7 @@ def main() -> None:
                 client=grafana_client,
                 log=log,
             )
-            
+
             produced = 0
             for result in results:
                 has_data = any(
@@ -98,9 +116,7 @@ def main() -> None:
                     log.debug("Skipping empty OTLP message")
                     continue
                 producer.produce(
-                    integration_settings.kafka.topic,
-                    key=None,
-                    value=MessageToJson(result)
+                    integration_settings.kafka.topic, key=None, value=MessageToJson(result)
                 )
                 produced += 1
 
@@ -114,6 +130,7 @@ def main() -> None:
     finally:
         producer.flush()
         shutdown_telemetry()
+
 
 if __name__ == "__main__":
     load_dotenv()

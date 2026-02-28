@@ -187,6 +187,7 @@ class PostgresSettings(BaseModel):
 class IcebergSettings(BaseModel):
     catalog_name: str
     database_name: str
+    warehouse_path: str = "warehouse"
     namespace: str | None = None
     table_name: str | None = None
     polaris: PolarisSettings | None = None
@@ -438,6 +439,7 @@ def load_integration_settings(config: dict[str, Any] | None = None) -> Integrati
         ),
         namespace=iceberg_config.get("namespace"),
         table_name=iceberg_config.get("table_name"),
+        warehouse_path=iceberg_config.get("warehouse_path", "warehouse"),
         polaris=polaris_settings,
         postgres=postgres_settings,
     )
@@ -450,11 +452,25 @@ def load_integration_settings(config: dict[str, Any] | None = None) -> Integrati
         scrape_interval_min=producer_config.get("scrape_interval_min", 1),
         queries=ProducerQueriesSettings(
             prometheus={
-                ds: [QueryEntry(id=q["id"], query=q["query"], resource_attributes=q.get("resource_attributes") or {}) for q in qs]
+                ds: [
+                    QueryEntry(
+                        id=q["id"],
+                        query=q["query"],
+                        resource_attributes=q.get("resource_attributes") or {},
+                    )
+                    for q in qs
+                ]
                 for ds, qs in (queries_config.get("prometheus") or {}).items()
             },
             loki={
-                ds: [QueryEntry(id=q["id"], query=q["query"], resource_attributes=q.get("resource_attributes") or {}) for q in qs]
+                ds: [
+                    QueryEntry(
+                        id=q["id"],
+                        query=q["query"],
+                        resource_attributes=q.get("resource_attributes") or {},
+                    )
+                    for q in qs
+                ]
                 for ds, qs in (queries_config.get("loki") or {}).items()
             },
         ),
