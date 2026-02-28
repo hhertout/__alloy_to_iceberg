@@ -29,6 +29,8 @@ def main() -> None:
             "enable.auto.commit": False,
         }
     )
+    batch = Batch(log, integration_settings)
+    c_client = CatalogClient(integration_settings)
 
     shutdown = False
 
@@ -36,16 +38,11 @@ def main() -> None:
         nonlocal shutdown
         log.info("Received signal %s, shutting down gracefully...", signal.Signals(signum).name)
         shutdown = True
-        if "consumer" in dir():
-            consumer.close()
-        shutdown_telemetry()
-        exit(0)
 
     signal.signal(signal.SIGTERM, shutdown_gracefully)
     signal.signal(signal.SIGINT, shutdown_gracefully)
 
     try:
-        c_client = CatalogClient(integration_settings)
         c_client.load_catalog()
         c_client.create_namespace()
         c_client.create_tables()
@@ -58,7 +55,6 @@ def main() -> None:
         )
 
         processor = IntegrationPipelineProcessor(log, integration_settings)
-        batch = Batch(log, integration_settings)
 
         while not shutdown:
             msg = consumer.poll(timeout=1.0)
@@ -81,7 +77,7 @@ def main() -> None:
                     batch.flush(client=c_client)
                     consumer.commit(asynchronous=False)
 
-        # Flush remaining data before exit
+        # Flush remaining data before exit (SIGTERM or normal shutdown)
         if batch.size > 0:
             log.info("Flushing remaining batch (%d rows) before shutdown...", batch.size)
             batch.flush(client=c_client)
@@ -93,8 +89,11 @@ def main() -> None:
         log.exception("Unexpected error in integration pipeline: %s", e)
     finally:
         log.info("Integration pipeline finished.")
-        if "consumer" in dir():
-            consumer.close()
+        if batch.size > 0:
+            log.info("Flushing remaining batch (%d rows) before shutdown...", batch.size)
+            batch.flush(client=c_client)
+            consumer.commit(asynchronous=False)
+        consumer.close()
         shutdown_telemetry()
 
 
