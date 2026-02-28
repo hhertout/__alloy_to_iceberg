@@ -13,13 +13,21 @@ services:
   alloy:
     image: grafana/alloy:latest
     container_name: alloy
+    privileged: true
     command: ["run", "--server.http.listen-addr=0.0.0.0:12345", "/etc/alloy/conf.alloy"]
     ports:
       - "12345:12345"
       - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP
+    devices:
+      - /dev/kmsg:/dev/kmsg
     volumes:
       - ./.docker/conf.alloy:/etc/alloy/conf.alloy
+      - /:/rootfs:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
 
   loki:
     image: grafana/loki:latest
@@ -44,16 +52,6 @@ services:
     volumes:
       - ./.docker/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
-
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
-    container_name: cadvisor
-    ports:
-      - "8080:8080"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
 
   redpanda:
     image: redpandadata/redpanda:latest

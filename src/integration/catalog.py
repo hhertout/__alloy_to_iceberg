@@ -63,8 +63,9 @@ class CatalogClient:
 
     def create_tables(self) -> None:
         identifier = f"{self._settings.iceberg.namespace}.otlp_metrics"
+        properties = {"write.parquet.compression-codec": "zstd"}
         try:
-            self.metrics_table = self.catalog.create_table(identifier, schema=METRICS_SCHEMA)
+            self.metrics_table = self.catalog.create_table(identifier, schema=METRICS_SCHEMA, properties=properties)
         except Exception as e:
             if "already exists" in str(e):
                 self.metrics_table = self.catalog.load_table(identifier)

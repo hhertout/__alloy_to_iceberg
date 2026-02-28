@@ -14,9 +14,9 @@ prometheus.exporter.self "alloy" {}
 
 prometheus.scrape "alloy_internal" {
   targets    = prometheus.exporter.self.alloy.targets
-  forward_to = [prometheus.remote_write.prom.receiver]
+  forward_to = [prometheus.remote_write.prom.receiver, otelcol.receiver.prometheus.default.receiver]
 
-  scrape_interval = "15s"
+  scrape_interval = "30s"
   job_name        = "alloy"
 }
 
@@ -33,8 +33,25 @@ prometheus.scrape "redpanda" {
   }]
   metrics_path    = "/public_metrics"
   forward_to      = [prometheus.remote_write.prom.receiver, otelcol.receiver.prometheus.default.receiver]
-  scrape_interval = "15s"
+  scrape_interval = "30s"
   job_name        = "redpanda"
+}
+
+// ─── Cadvisor (embedded) ───
+// cAdvisor is embedded in Alloy — no separate container needed.
+// Alloy must run privileged with /sys, /var/lib/docker, and the Docker
+// socket mounted (see docker-compose.yml).
+prometheus.exporter.cadvisor "default" {
+  docker_only                   = true
+  store_container_labels        = false
+  allowlisted_container_labels  = ["com.docker.compose.service"]
+}
+
+prometheus.scrape "cadvisor" {
+  targets         = prometheus.exporter.cadvisor.default.targets
+  forward_to      = [prometheus.remote_write.prom.receiver, otelcol.receiver.prometheus.default.receiver]
+  scrape_interval = "30s"
+  job_name        = "cadvisor"
 }
 
 // ─── OpenTelemetry: receive OTLP from the Python app ───

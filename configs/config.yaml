@@ -7,14 +7,64 @@ grafana:
   url: http://localhost:3000
   api_key: $GRAFANA_SA_TOKEN
 
+storage:
+  # Amazon S3 configuration
+  # s3:
+  #   bucket_name: $AWS_S3_BUCKET_NAME
+  #   region_name: $AWS_S3_REGION
+  #   endpoint_url: $AWS_S3_ENDPOINT_URL
+  #   aws_access_key_id: $AWS_ACCESS_KEY_ID
+  #   aws_secret_access_key: $AWS_SECRET_ACCESS_KEY
+  #   aws_session_token: $AWS_SESSION_TOKEN
+  #   aws_regoin: $AWS_REGION
+  #   file_prefix: chunk
+  #   file_identifier: dataframe
+  #   chunk_folder: chunks
+  #   models_folder: models
+
+  # Azure storage configuration
+  azure:
+    account_name: $AZURE_STORAGE_ACCOUNT_NAME
+    container_name: $AZURE_STORAGE_CONTAINER_NAME
+    connection_string: $AZURE_STORAGE_CONNECTION_STRING
+    file_prefix: chunk
+    file_identifier: dataframe
+    chunk_folder: chunks
+    models_folder: models
+
 # Specs for the integration pipeline
 integration:
-  # Number of rows to process in each batch before writing to storage
-  batch_size: 10000
+  producer:
+    scrape_interval_min: 1
+    # Queries scraped periodically from Grafana data sources (Prometheus, Loki) to generate training data.
+    # Must return numeric values. 
+    queries:
+      prometheus:
+        Mimir:
+          - id: avg_scrape_duration_seconds
+            query: "avg_over_time(scrape_duration_seconds{job=\"integrations/self\"}[1m])"
+            resource_attributes:
+              service.name: integrations
+              service.instance.id: alloy-jhfs786sbh9
+          - id: rate_container_cpu_usage_seconds_total
+            query: "rate(container_cpu_usage_seconds_total{}[1m])"
+            resource_attributes:
+              service.name: integrations
+              service.instance.id: alloy-bshjvkdza
+      loki:
+        Loki:
+          - id: count_over_time_info_alloy
+            query: "count_over_time({service_name=\"alloy\"} |= \"info\" [1m])"
+            resource_attributes:
+              service.name: alloy
+              service.instance.id: alloy-self
+  
+  # Number of rows to process in each batch before writing to storage (in MB)
+  batch_size: 3
   # Kafka configuration for consuming OpenTelemetry data
   kafka:
     # Kafka broker address (e.g., localhost:9092)
-    broker: localhost:19092
+    broker: $KAFKA_BROKER
     # Kafka topic to consume from
     topic: monitoring
     # Kafka consumer group ID
@@ -35,14 +85,22 @@ integration:
   # Metrics processing configuration
   metrics:
     include:
-        - name: redpanda_kafka_request_latency_seconds_sum
-          resource_attributes:
-             service.name: redpanda
+        - name: otelcol_exporter_queue_size
+        - name: redpanda_cluster_topics
           attributes:
-            redpanda_request: produce
+             job: "redpanda"
+        - name: go_gc_cycles_automatic_gc_cycles_total
+          attributes:
+             instance: "localhost:9090"
         - name: redpanda_kafka_quotas_client_quota_throttle_time_bucket
           resource_attributes:
              service.instance.id: "redpanda.*"
+        - name: container_memory_usage_bytes
+          attributes:
+             name: "alloy"
+        - name: container_cpu_usage_seconds_total
+          attributes:
+             name: "alloy"
   # Logs processing configuration
   logs:
     include:
@@ -107,31 +165,6 @@ models:
     epochs: 10
     early_stopping_patience: 7
     random_seed: 42
-
-storage:
-  # Amazon S3 configuration
-  # s3:
-  #   bucket_name: $AWS_S3_BUCKET_NAME
-  #   region_name: $AWS_S3_REGION
-  #   endpoint_url: $AWS_S3_ENDPOINT_URL
-  #   aws_access_key_id: $AWS_ACCESS_KEY_ID
-  #   aws_secret_access_key: $AWS_SECRET_ACCESS_KEY
-  #   aws_session_token: $AWS_SESSION_TOKEN
-  #   aws_regoin: $AWS_REGION
-  #   file_prefix: chunk
-  #   file_identifier: dataframe
-  #   chunk_folder: chunks
-  #   models_folder: models
-
-  # Azure storage configuration
-  azure:
-    account_name: $AZURE_STORAGE_ACCOUNT_NAME
-    container_name: $AZURE_STORAGE_CONTAINER_NAME
-    connection_string: $AZURE_STORAGE_CONNECTION_STRING
-    file_prefix: chunk
-    file_identifier: dataframe
-    chunk_folder: chunks
-    models_folder: models
 
 # OpenTelemetry configuration
 telemetry:

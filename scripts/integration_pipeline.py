@@ -1,4 +1,5 @@
 from confluent_kafka import Consumer, KafkaError
+import signal
 from dotenv import load_dotenv
 
 from configs.base import (
@@ -18,16 +19,30 @@ def main() -> None:
     log = get_logger("integration_pipeline")
     log.info("Starting integration pipeline...")
 
+    integration_settings = load_integration_settings()
+    consumer = Consumer(
+        {
+            "bootstrap.servers": integration_settings.kafka.broker,
+            "group.id": integration_settings.kafka.group_id,
+            "auto.offset.reset": "earliest",
+            "enable.auto.commit": False,  # commit manuel après flush
+        }
+    )
+
+    shutdown = False
+    def shutdown_gracefully(signum: int, _: object) -> None:
+        nonlocal shutdown
+        log.info("Received signal %s, shutting down gracefully...", signal.Signals(signum).name)
+        shutdown = True
+        if "consumer" in dir():
+            consumer.close()
+        shutdown_telemetry()
+        exit(0)
+
+    signal.signal(signal.SIGTERM, shutdown_gracefully)
+    signal.signal(signal.SIGINT, shutdown_gracefully)
+
     try:
-        integration_settings = load_integration_settings()
-        consumer = Consumer(
-            {
-                "bootstrap.servers": integration_settings.kafka.broker,
-                "group.id": integration_settings.kafka.group_id,
-                "auto.offset.reset": "earliest",
-                "enable.auto.commit": False,  # commit manuel après flush
-            }
-        )
 
         c_client = CatalogClient(integration_settings)
         c_client.load_catalog()
@@ -44,7 +59,7 @@ def main() -> None:
         processor = IntegrationPipelineProcessor(log, integration_settings)
         batch = Batch(log, integration_settings)
 
-        while True:
+        while not shutdown:
             msg = consumer.poll(timeout=1.0)
             if msg is None:
                 pass
@@ -66,9 +81,16 @@ def main() -> None:
                 if len(response) > 0:
                     batch.add(response)
 
-                if batch.size >= integration_settings.batch_size:
+                log.debug(f"Batch size: {batch.size_bytes} bytes")
+                if batch.size_bytes >= integration_settings.batch_size:
                     batch.flush(client=c_client)
                     consumer.commit(asynchronous=False)
+
+        # Flush remaining data before exit
+        if batch.size > 0:
+            log.info("Flushing remaining batch (%d rows) before shutdown...", batch.size)
+            batch.flush(client=c_client)
+            consumer.commit(asynchronous=False)
 
     except KeyboardInterrupt:
         log.info("Integration pipeline interrupted. Shutting down...")

@@ -213,8 +213,25 @@ class LogsIntegrationSettings(BaseModel):
     include: list[LogFilterSettings] = []
 
 
+class QueryEntry(BaseModel):
+    id: str
+    query: str
+    resource_attributes: dict[str, str] = {}
+
+
+class ProducerQueriesSettings(BaseModel):
+    prometheus: dict[str, list[QueryEntry]] = {}
+    loki: dict[str, list[QueryEntry]] = {}
+
+
+class ProducerSettings(BaseModel):
+    scrape_interval_min: int = 1
+    queries: ProducerQueriesSettings = ProducerQueriesSettings()
+
+
 class IntegrationSettings(BaseModel):
     batch_size: int = 1000
+    producer: ProducerSettings = ProducerSettings()
     kafka: KafkaSettings
     iceberg: IcebergSettings
     metrics: MetricsSettings = MetricsSettings()
@@ -427,6 +444,22 @@ def load_integration_settings(config: dict[str, Any] | None = None) -> Integrati
 
     batch_size = integration_config.get("batch_size", 1000)
 
+    producer_config: dict = integration_config.get("producer") or {}
+    queries_config: dict = producer_config.get("queries") or {}
+    producer_settings = ProducerSettings(
+        scrape_interval_min=producer_config.get("scrape_interval_min", 1),
+        queries=ProducerQueriesSettings(
+            prometheus={
+                ds: [QueryEntry(id=q["id"], query=q["query"], resource_attributes=q.get("resource_attributes") or {}) for q in qs]
+                for ds, qs in (queries_config.get("prometheus") or {}).items()
+            },
+            loki={
+                ds: [QueryEntry(id=q["id"], query=q["query"], resource_attributes=q.get("resource_attributes") or {}) for q in qs]
+                for ds, qs in (queries_config.get("loki") or {}).items()
+            },
+        ),
+    )
+
     metrics_raw: list[dict] = (integration_config.get("metrics") or {}).get("include") or []
     metrics_settings = MetricsSettings(
         include=[
@@ -453,6 +486,7 @@ def load_integration_settings(config: dict[str, Any] | None = None) -> Integrati
 
     return IntegrationSettings(
         batch_size=batch_size,
+        producer=producer_settings,
         kafka=kafka_settings,
         iceberg=iceberg_settings,
         metrics=metrics_settings,
