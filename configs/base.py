@@ -3,7 +3,7 @@ from functools import lru_cache
 from typing import Any
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from configs.constants import (
     DEFAULT_AZ_FILE_EXTENSION,
@@ -168,10 +168,22 @@ class ModelSettings(BaseModel):
     pytorch: PytorchSettings = PytorchSettings()
 
 
+class KafkaTopicSettings(BaseModel):
+    metrics: str
+    logs: str | None = None
+
+
 class KafkaSettings(BaseModel):
     broker: str
-    topic: str
+    topic: KafkaTopicSettings
     group_id: str
+
+    @field_validator("topic", mode="before")
+    @classmethod
+    def _coerce_topic(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return {"metrics": value}
+        return value
 
 
 class PolarisSettings(BaseModel):
@@ -382,6 +394,33 @@ def load_integration_settings(config: dict[str, Any] | None = None) -> Integrati
         integration_config = config
 
     kafka_config = integration_config.get("kafka", {})
+    topic_config = kafka_config.get("topic")
+
+    topic_metrics: str
+    topic_logs: str | None = None
+    if isinstance(topic_config, dict):
+        topic_metrics = _require_non_empty(
+            _first_non_empty(
+                _resolve_env_reference(topic_config.get("metrics")),
+                _env("KAFKA_TOPIC_METRICS"),
+                _env("KAFKA_TOPIC"),
+            ),
+            "integration.kafka.topic.metrics",
+        )
+        topic_logs = _first_non_empty(
+            _resolve_env_reference(topic_config.get("logs")),
+            _env("KAFKA_TOPIC_LOGS"),
+        )
+    else:
+        topic_metrics = _require_non_empty(
+            _first_non_empty(
+                _resolve_env_reference(topic_config),
+                _env("KAFKA_TOPIC"),
+            ),
+            "integration.kafka.topic",
+        )
+        topic_logs = _env("KAFKA_TOPIC_LOGS")
+
     kafka_settings = KafkaSettings(
         broker=_require_non_empty(
             _first_non_empty(
@@ -390,13 +429,7 @@ def load_integration_settings(config: dict[str, Any] | None = None) -> Integrati
             ),
             "integration.kafka.broker",
         ),
-        topic=_require_non_empty(
-            _first_non_empty(
-                _resolve_env_reference(kafka_config.get("topic")),
-                _env("KAFKA_TOPIC"),
-            ),
-            "integration.kafka.topic",
-        ),
+        topic={"metrics": topic_metrics, "logs": topic_logs},
         group_id=_require_non_empty(
             _first_non_empty(
                 _resolve_env_reference(kafka_config.get("group_id")),

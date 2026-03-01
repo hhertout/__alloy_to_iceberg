@@ -116,7 +116,7 @@ def main() -> None:
                     log.debug("Skipping empty OTLP message")
                     continue
                 producer.produce(
-                    integration_settings.kafka.topic, key=None, value=MessageToJson(result)
+                    integration_settings.kafka.topic.metrics, key=None, value=MessageToJson(result)
                 )
                 produced += 1
 

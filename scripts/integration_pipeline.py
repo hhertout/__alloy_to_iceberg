@@ -47,10 +47,10 @@ def main() -> None:
         c_client.create_namespace()
         c_client.create_tables()
 
-        consumer.subscribe([integration_settings.kafka.topic])
+        consumer.subscribe([integration_settings.kafka.topic.metrics])
         log.info(
             "Kafka consumer initialized and subscribed to topic: %s, consumer group: %s",
-            integration_settings.kafka.topic,
+            integration_settings.kafka.topic.metrics,
             integration_settings.kafka.group_id,
         )
 
@@ -67,6 +67,11 @@ def main() -> None:
                 value = msg.value()
                 if value is None:
                     continue
+
+                # Currently, only the metrics topic is processed.
+                # TODO:
+                # Handle the message coming from logs topic
+                
                 response = processor.process_message(value)
 
                 if len(response) > 0:
@@ -82,6 +87,7 @@ def main() -> None:
             log.info("Flushing remaining batch (%d rows) before shutdown...", batch.size)
             batch.flush(client=c_client)
             consumer.commit(asynchronous=False)
+            log.info("Remaining batch flushed successfully.")
 
     except KeyboardInterrupt:
         log.info("Integration pipeline interrupted. Shutting down...")
@@ -93,6 +99,7 @@ def main() -> None:
             log.info("Flushing remaining batch (%d rows) before shutdown...", batch.size)
             batch.flush(client=c_client)
             consumer.commit(asynchronous=False)
+            log.info("Remaining batch flushed successfully.")
         consumer.close()
         shutdown_telemetry()
 

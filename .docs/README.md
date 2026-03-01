@@ -11,6 +11,7 @@
 | [qa.md](./qa.md) | Quality assurance |
 | [real-time-prediction.md](./real-time-prediction.md) | Real-time streaming prediction architecture |
 | [polaris.md](./polaris.md) | Apache Polaris user manual (Iceberg catalog) |
+| [kubernetes.md](./kubernetes.md) | Kubernetes deployment with Helm |
 
 ## Quick start
 

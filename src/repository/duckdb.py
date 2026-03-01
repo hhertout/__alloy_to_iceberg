@@ -40,9 +40,37 @@ class BlobRepository:
         df = cast(
             pl.DataFrame,
             self.conn.execute("""
-            SELECT *
-            FROM otlp_metrics
+            WITH 
+            -- Process attr and resource_attr
+            metric_table AS (
+                SELECT
+                    timestamp,
+                    __name__,
+                    value,
+                    service_name,
+                    service_namespace,
+                    k8s_namespace_name,
+                    cluster_name,
+                    env,
+                    MAP(
+                        LIST_TRANSFORM(attributes, x -> x.key),
+                        LIST_TRANSFORM(attributes, x -> x.value)
+                    ) as attributes,
+                    MAP(
+                        LIST_TRANSFORM(resource_attributes, x -> x.key),
+                        LIST_TRANSFORM(resource_attributes, x -> x.value)
+                    ) as resource_attributes
+                FROM otlp_metrics
+            )
+            SELECT
+                (INTERVAL '5 minutes', timestamp) AS bucket,
+                __name__,
+                AVG(value) AS value,
+                attributes,
+                resource_attributes
+            FROM metric_table
             WHERE timestamp > now() - INTERVAL '7 days'
+            GROUP BY ALL
         """).pl(),
         )
 

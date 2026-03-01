@@ -68,7 +68,7 @@ otelcol.receiver.otlp "default" {
 otelcol.processor.batch "default" {
   output {
     metrics = [otelcol.exporter.prometheus.default.input]
-    logs    = [otelcol.exporter.loki.default.input]
+    logs    = [otelcol.exporter.loki.default.input, otelcol.processor.batch.kafka.input]
   }
 }
 
@@ -89,6 +89,7 @@ otelcol.receiver.prometheus "default" {
 otelcol.processor.batch "kafka" {
   output {
     metrics = [otelcol.exporter.kafka.default.input]
+    logs    = [otelcol.exporter.kafka.default.input]
   }
 }
 
@@ -97,7 +98,12 @@ otelcol.exporter.kafka "default" {
   protocol_version = "2.0.0"
 
   metrics {
-    topic = "monitoring"
+    topic = "metrics"
+    encoding = "otlp_json"
+  }
+
+  logs {
+    topic = "logs"
     encoding = "otlp_json"
   }
 

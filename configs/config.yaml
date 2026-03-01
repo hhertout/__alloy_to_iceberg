@@ -54,6 +54,8 @@ integration:
             resource_attributes:
               service.name: integrations
               service.instance.id: alloy-bshjvkdza
+      # Important: Loki queries must return numeric values. Use count_over_time() or similar functions to 
+      # generate numeric results from log data.
       loki:
         Loki:
           - id: count_over_time_info_alloy
@@ -61,7 +63,7 @@ integration:
             resource_attributes:
               service.name: alloy
               service.instance.id: alloy-self
-  
+
   # Number of rows to process in each batch before writing to storage (in MB)
   batch_size: 3
   # Kafka configuration for consuming OpenTelemetry data
@@ -69,7 +71,9 @@ integration:
     # Kafka broker address (e.g., localhost:9092)
     broker: $KAFKA_BROKER
     # Kafka topic to consume from
-    topic: monitoring
+    topic: 
+      metrics: metrics
+      logs: logs
     # Kafka consumer group ID
     group_id: torch-group-1
   # Iceberg configuration for storing processed data
@@ -95,10 +99,8 @@ integration:
              job: "redpanda"
         - name: go_gc_cycles_automatic_gc_cycles_total
           attributes:
-             instance: "localhost:9090"
-        - name: redpanda_kafka_quotas_client_quota_throttle_time_bucket
-          resource_attributes:
-             service.instance.id: "redpanda.*"
+             instance: "localhost.*"
+        - name: avg_scrape_duration_seconds
         - name: container_memory_usage_bytes
           attributes:
              name: "alloy"
@@ -110,7 +112,7 @@ integration:
     include:
       - service_name: redpanda
         level: info
-        contains: ".*ml_obs.*"
+        contains: ".*dl_obs.*"
 
 # Model training configuration and limits
 limits:

@@ -219,7 +219,20 @@ class TestLoadIntegrationSettings:
 
     def test_with_integration_key(self) -> None:
         s = load_integration_settings({"integration": {"kafka": _KAFKA, "iceberg": _ICEBERG}})
-        assert s.kafka.topic == "test"
+        assert s.kafka.topic.metrics == "test"
+
+    def test_kafka_topic_mapping_uses_metrics_as_default_topic(self) -> None:
+        cfg = {
+            "kafka": {
+                "broker": "localhost:19092",
+                "topic": {"metrics": "metrics-topic", "logs": "logs-topic"},
+                "group_id": "grp",
+            },
+            "iceberg": _ICEBERG,
+        }
+        s = load_integration_settings(cfg)
+        assert s.kafka.topic.metrics == "metrics-topic"
+        assert s.kafka.topic.logs == "logs-topic"
 
     def test_batch_size_override(self) -> None:
         s = load_integration_settings({"kafka": _KAFKA, "iceberg": _ICEBERG, "batch_size": 500})
@@ -257,8 +270,22 @@ class TestLoadIntegrationSettings:
         monkeypatch.setenv("KAFKA_GROUP_ID", "env-group")
         s = load_integration_settings({"kafka": {}, "iceberg": _ICEBERG})
         assert s.kafka.broker == "env-broker:9092"
-        assert s.kafka.topic == "env-topic"
+        assert s.kafka.topic.metrics == "env-topic"
         assert s.kafka.group_id == "env-group"
+
+    def test_kafka_topic_mapping_env_fallback(self, monkeypatch) -> None:
+        monkeypatch.setenv("KAFKA_TOPIC_METRICS", "env-metrics-topic")
+        cfg = {
+            "kafka": {
+                "broker": "localhost:19092",
+                "topic": {"logs": "logs-topic"},
+                "group_id": "grp",
+            },
+            "iceberg": _ICEBERG,
+        }
+        s = load_integration_settings(cfg)
+        assert s.kafka.topic.metrics == "env-metrics-topic"
+        assert s.kafka.topic.logs == "logs-topic"
 
     def test_kafka_dollar_env_reference(self, monkeypatch) -> None:
         monkeypatch.setenv("MY_BROKER", "ref-broker:9092")

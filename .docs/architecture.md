@@ -267,3 +267,57 @@ The model runs inference on the live data to produce forecasted metric values.
 #### 4. Write predictions to TSDB
 
 The script pushes predicted values to a time-series database (for example, Prometheus via remote write), making them available in Grafana dashboards alongside actual metrics for comparison and alerting.
+
+---
+
+## Storage estimation
+
+This section estimates the storage footprint and cost of the Iceberg data lake over time.
+
+### Reference measurement
+
+A representative Parquet file (ZSTD compression) with 20,000 rows and 11 columns weighs **43 KB**, giving a compressed density of roughly **2.15 bytes per row**. This is typical for metrics data: Parquet's dictionary encoding collapses repeated strings (metric names, label values) very efficiently before ZSTD compresses further.
+
+### Model
+
+The estimation uses the following parameters:
+
+- **Metrics scraped**: 50
+- **Scrape interval**: 30 seconds → 2,880 scrapes/day → 86,400 scrapes/month
+- **Series per metric**: variable (see scenarios below). Each series corresponds to a unique label combination (for example, `{method="GET", status="200"}` and `{method="POST", status="500"}` are two series for the same metric).
+
+Each scrape produces one row per series per metric. The formula is:
+
+```
+rows/month = metrics × series/metric × scrapes/month
+           = 50 × series/metric × 86,400
+```
+
+### Scenarios
+
+| Scenario | Series/metric | Rows/scrape | Rows/month | Storage/month | Storage/year |
+|----------|--------------|-------------|------------|---------------|--------------|
+| Small    | 5            | 250         | 21.6 M     | ~46 MB        | ~560 MB      |
+| Medium   | 20           | 1,000       | 86.4 M     | ~186 MB       | ~2.2 GB      |
+| Large    | 50           | 2,500       | 216 M      | ~465 MB       | ~5.6 GB      |
+
+Storage per month = rows/month × 2.15 bytes.
+Storage per year is cumulative (data accumulates, not overwritten).
+
+### Azure Blob Storage cost (LRS, West Europe, Hot tier)
+
+| Component             | Price                     |
+|-----------------------|---------------------------|
+| Storage               | ~$0.018 / GB / month      |
+| Write operations      | ~$0.053 / 10k ops         |
+| Read operations       | ~$0.0045 / 10k ops        |
+
+Estimated monthly cost at end of year (cumulative data):
+
+| Scenario | Storage at month 12 | Storage cost/month |
+|----------|--------------------|--------------------|
+| Small    | ~560 MB            | ~$0.01             |
+| Medium   | ~2.2 GB            | ~$0.04             |
+| Large    | ~5.6 GB            | ~$0.10             |
+
+Storage cost is negligible. The dominant cost at scale is **compute** (integration pipeline, training jobs) and **operations** (Iceberg metadata writes on each batch flush), not raw storage.
