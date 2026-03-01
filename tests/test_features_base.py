@@ -7,7 +7,10 @@ from src.features.base import FeaturesEngineering
 
 
 class _TestFeatures(FeaturesEngineering):
-    def _get_pipes(self) -> list:
+    def _get_ml_pipes(self) -> list:
+        return []
+
+    def _get_torch_pipes(self) -> list:
         return []
 
 

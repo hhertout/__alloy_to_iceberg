@@ -39,13 +39,24 @@ class FeaturesEngineering(ABC):
         )
 
     @abstractmethod
-    def _get_pipes(self) -> list:
-        """Return the ordered list of pipe functions for this version."""
+    def _get_ml_pipes(self) -> list:
+        """Return the ordered list of ML pipe functions for this version."""
         ...
 
-    def generate_features(self, df: pl.DataFrame) -> pl.DataFrame:
-        """Applies all pipes sequentially."""
-        for pipe in self._get_pipes():
+    @abstractmethod
+    def _get_torch_pipes(self) -> list:
+        """Return the ordered list of Torch pipe functions for this version."""
+        ...
+
+    def generate_ml_features(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Applies all ML pipes sequentially."""
+        for pipe in self._get_ml_pipes():
+            df = df.pipe(pipe)
+        return df
+
+    def generate_torch_features(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Applies all Torch pipes sequentially."""
+        for pipe in self._get_torch_pipes():
             df = df.pipe(pipe)
         return df
 

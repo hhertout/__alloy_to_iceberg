@@ -1,6 +1,8 @@
 from pyiceberg.catalog import load_catalog
+from pyiceberg.table import Table
 
 from configs.base import AzureSettings, IntegrationSettings, load_storage_settings
+from src.integration.migrations.migrator import MetricsMigration
 from src.integration.schema.metric import METRICS_SCHEMA
 
 
@@ -65,17 +67,16 @@ class CatalogClient:
         metrics_table_name = "otlp_metrics"
         identifier = f"{self._settings.iceberg.namespace}.{metrics_table_name}"
         properties = {"write.parquet.compression-codec": "zstd"}
+
         try:
             self.metrics_table = self.catalog.create_table(
                 identifier, schema=METRICS_SCHEMA, properties=properties
             )
-            self.logs_table = self.catalog.create_table(
-                identifier=f"{self._settings.iceberg.namespace}.oltp_logs",
-                schema=METRICS_SCHEMA,
-                properties=properties,
-            )
         except Exception as e:
-            if "already exists" in str(e):
-                self.metrics_table = self.catalog.load_table(identifier)
-            else:
+            if "already exists" not in str(e):
                 raise e
+            self.metrics_table = self.catalog.load_table(identifier)
+            self.__execute_migration(self.metrics_table)
+
+    def __execute_migration(self, table: Table) -> None:
+        MetricsMigration(table).migrate()

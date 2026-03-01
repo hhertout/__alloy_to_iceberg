@@ -13,27 +13,32 @@ METRICS_SCHEMA = Schema(
     NestedField(2, "__name__", StringType(), required=False),
     NestedField(3, "value", DoubleType(), required=False),
     NestedField(4, "service_name", StringType(), required=False),
+    NestedField(5, "service_namespace", StringType(), required=False),
+    NestedField(6, "k8s_namespace_name", StringType(), required=False),
+    NestedField(7, "cluster_name", StringType(), required=False),
+    NestedField(8, "host", StringType(), required=False),
+    NestedField(9, "env", StringType(), required=False),
     NestedField(
-        5,
+        10,
         "resource_attributes",
         ListType(
-            6,
-            StructType(
-                NestedField(7, "key", StringType(), required=False),
-                NestedField(8, "value", StringType(), required=False),
+            element_id=11,
+            element_type=StructType(
+                NestedField(12, "key", StringType(), required=False),
+                NestedField(13, "value", StringType(), required=False),
             ),
             element_required=False,
         ),
         required=False,
     ),
     NestedField(
-        9,
+        14,
         "attributes",
         ListType(
-            10,
-            StructType(
-                NestedField(11, "key", StringType(), required=False),
-                NestedField(12, "value", StringType(), required=False),
+            element_id=15,
+            element_type=StructType(
+                NestedField(16, "key", StringType(), required=True),
+                NestedField(17, "value", StringType(), required=False),
             ),
             element_required=False,
         ),

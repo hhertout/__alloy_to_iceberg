@@ -121,7 +121,7 @@ def main() -> None:
                 produced += 1
 
             log.info("Produced %d messages to Kafka topic", produced)
-            # wait for interval
+            # wait for an interval
             sleep(integration_settings.producer.scrape_interval_min * 60)
     except KeyboardInterrupt:
         log.info("Metrics producer interrupted by user.")

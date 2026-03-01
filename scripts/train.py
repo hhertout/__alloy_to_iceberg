@@ -11,6 +11,7 @@ from src.client.azure import AzureInterface
 from src.features.v1 import FeaturesEngineeringV1
 from src.prophet.v1 import prophet_train_v1
 from src.pytorch.v1 import pytorch_train_lstm
+from src.repository.duckdb import BlobRepository
 from src.sklearn.v1 import sklearn_train_rand_forest, sklearn_train_xgboost
 from utils.askii_art import print_ascii_art
 from utils.fake_data import generate_fake_dataframe
@@ -22,52 +23,42 @@ _pipeline_runs = _meter.create_counter(
     "ml.pipeline.generate_model.runs",
     description="Number of pipeline runs",
 )
-
 _dataframe_rows = _meter.create_gauge(
     "ml.training.dataframe.rows",
     description="Number of rows in the merged DataFrame",
 )
-
 _dataframe_features = _meter.create_gauge(
     "ml.training.features.number",
     description="Number of features in the final training DataFrame after feature engineering",
 )
-
 _sklearn_time = _meter.create_gauge(
     "ml.training.sklearn.time.seconds",
     description="Time taken for sklearn model training in seconds",
 )
-
 _sklearn_mae = _meter.create_gauge(
     "ml.training.sklearn.mae",
     description="Mean Absolute Error of sklearn model",
 )
-
 _sklearn_mape = _meter.create_gauge(
     "ml.training.sklearn.mape",
     description="Mean Absolute Percentage Error of sklearn model",
 )
-
 _sklearn_rmse = _meter.create_gauge(
     "ml.training.sklearn.rmse",
     description="Root Mean Squared Error of sklearn model",
 )
-
 _pytorch_time = _meter.create_gauge(
     "ml.training.pytorch.time.seconds",
     description="Time taken for pytorch model training in seconds",
 )
-
 _pytorch_mae = _meter.create_gauge(
     "ml.training.pytorch.mae",
     description="Mean Absolute Error of pytorch model",
 )
-
 _pytorch_rmse = _meter.create_gauge(
     "ml.training.pytorch.rmse",
     description="Root Mean Squared Error of pytorch model",
 )
-
 _pytorch_mape = _meter.create_gauge(
     "ml.training.pytorch.mape",
     description="Mean Absolute Percentage Error of pytorch model",
@@ -121,6 +112,16 @@ def main() -> None:
     )
     log.info("Once done, the model is trained and saved back to Storage.")
     log.info("=" * 50)
+
+    repository = BlobRepository()
+    df = repository.get_data_for_training()
+
+    #############################################################
+    #############################################################
+    ##################         OLD        #######################
+    #############################################################
+    #############################################################
+    exit(0)
 
     if args.use_fake:
         log.warning("Using fake synthetic data (--use-fake enabled)...")

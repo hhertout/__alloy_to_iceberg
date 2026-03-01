@@ -4,7 +4,7 @@ from src.features.base import FeaturesEngineering
 
 
 class FeaturesEngineeringV1(FeaturesEngineering):
-    def _get_pipes(self) -> list:
+    def _get_ml_pipes(self) -> list:
         # To add:
         # - short lag : t-1, t-5, t-15
         # - delta rates: x_t - x_t-1
@@ -19,6 +19,15 @@ class FeaturesEngineeringV1(FeaturesEngineering):
         ]
         self._feature_gauge.set(len(features), attributes={"version": "v1"})
 
+        return features
+
+    def _get_torch_pipes(self) -> list:
+        # For Torch features, we want to keep it minimal and only add features that are relevant for the model training.
+        features = [
+            self.hour_seasonality,
+            self.harmonics_temporality_hours,
+            self.business_day_seasonality,
+        ]
         return features
 
     def _v1_features(self, df: pl.DataFrame) -> pl.DataFrame:

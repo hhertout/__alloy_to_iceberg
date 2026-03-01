@@ -31,6 +31,11 @@ class MetricRow(BaseModel):
     name: str = Field(serialization_alias="__name__")
     value: float | None
     service_name: str | None
+    service_namespace: str | None = None
+    k8s_namespace_name: str | None = None
+    cluster_name: str | None = None
+    host: str | None = None
+    env: str | None = None
     resource_attributes: list[KVPair]
     attributes: list[KVPair]
 
@@ -48,6 +53,11 @@ class IntegrationPipelineProcessor:
         "__name__": pl.String,
         "value": pl.Float64,
         "service_name": pl.String,
+        "service_namespace": pl.String,
+        "k8s_namespace_name": pl.String,
+        "cluster_name": pl.String,
+        "host": pl.String,
+        "env": pl.String,
         "resource_attributes": pl.List(pl.Struct({"key": pl.String, "value": pl.String})),
         "attributes": pl.List(pl.Struct({"key": pl.String, "value": pl.String})),
     }
@@ -85,16 +95,36 @@ class IntegrationPipelineProcessor:
         - ``__name__``            : String             — metric name, partition key
         - ``value``               : Float64            — numeric value
         - ``service_name``        : String             — promoted from resource.attributes["service.name"]
-        - ``resource_attributes`` : List[Struct{key, value}] — full resource attributes as a map
-        - ``attributes``          : List[Struct{key, value}] — full dataPoint attributes as a map
+        - ``resource_attributes`` : Map[String, String] — full resource attributes as a map
+        - ``attributes``          : Map[String, String] — full dataPoint attributes as a map
         """
         rows: list[MetricRow] = []
 
         for rm in msg.resource_metrics:
             resource_raw = self._flatten_attrs(rm.resource.attributes)
             raw_service = resource_raw.get("service.name")
+            raw_deployement_env = resource_raw.get("deployment.environment")
+            raw_env = resource_raw.get("env")
+            raw_service_namespace = resource_raw.get("service.namespace")
+            raw_k8s_namespace = resource_raw.get("k8s.namespace.name")
+            raw_cluster = resource_raw.get("cluster.name")
+            raw_host = resource_raw.get("host")
+            raw_host_name = resource_raw.get("host.name")
+
             service_name: str | None = str(raw_service) if raw_service is not None else None
-            resource_kv = self._attrs_to_kv_list(rm.resource.attributes)
+            service_namespace: str | None = (
+                str(raw_service_namespace) if raw_service_namespace is not None else None
+            )
+            k8s_namespace_name: str | None = (
+                str(raw_k8s_namespace) if raw_k8s_namespace is not None else None
+            )
+            cluster_name: str | None = str(raw_cluster) if raw_cluster is not None else None
+            host: str | None = str(raw_host) if raw_host is not None else None
+            host_name: str | None = str(raw_host_name) if raw_host_name is not None else None
+            env: str | None = str(raw_env) if raw_env is not None else None
+            deployment_env: str | None = (
+                str(raw_deployement_env) if raw_deployement_env is not None else None
+            )
 
             for sm in rm.scope_metrics:
                 for metric in sm.metrics:
@@ -109,7 +139,12 @@ class IntegrationPipelineProcessor:
                                 name=metric.name,
                                 value=self._datapoint_value(dp, metric_type),
                                 service_name=service_name,
-                                resource_attributes=resource_kv,
+                                service_namespace=service_namespace,
+                                k8s_namespace_name=k8s_namespace_name,
+                                cluster_name=cluster_name,
+                                host=host_name or host or None,
+                                env=env or deployment_env or None,
+                                resource_attributes=self._attrs_to_kv_list(rm.resource.attributes),
                                 attributes=self._attrs_to_kv_list(dp.attributes),
                             )
                         )
@@ -159,6 +194,7 @@ class IntegrationPipelineProcessor:
 
         filtered_df = df.filter(combined)
         _filtered_rows_gauge.set(_raw_count - len(filtered_df))
+
         return filtered_df
 
     def process_message(self, msg: str | bytes) -> pl.DataFrame:
