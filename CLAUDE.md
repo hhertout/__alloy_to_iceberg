@@ -19,6 +19,10 @@ All code comments and documentation must be written in English.
 @.docs/runbook.md
 @.docs/qa.md
 
+## Maintenance rules
+
+When `configs/config.yaml` is modified, update `.docs/configuration.md` to reflect the changes. Keep parameter names, types, default values, and environment variable fallbacks in sync with `configs/base.py`.
+
 ## Style
 
 ### Structure

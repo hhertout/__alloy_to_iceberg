@@ -1,0 +1,57 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Tests and QA
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Dev tooling
+.pre-commit-config.yaml
+.github/
+
+# Experiments (notebooks, exploratory scripts)
+experiments/
+
+# Docker and infrastructure files
+.docker/
+docker-compose*.yml
+.tf/
+.devops/
+
+# Documentation (README.md is kept — hatchling needs it to build the package)
+.docs/
+CLAUDE.md
+.excalidraw
+
+# Generated output
+output/
+
+# Git
+.git/
+.gitignore
+
+# Secrets — never include in image
+.env
+.env.*
+
+# Editor and OS artifacts
+.vscode/
+.idea/
+*.swp
+.DS_Store
