@@ -135,7 +135,7 @@ def main() -> None:
 
     log.info("Feature engineering...")
     fe = FeaturesEngineeringV1()
-    df = fe.generate_features(df)
+    df = fe.generate_ml_features(df)
     _dataframe_features.set(df.width, attributes=get_default_attributes())
 
     log.info("Training model...")

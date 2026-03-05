@@ -74,6 +74,4 @@ class BlobRepository:
         """).pl(),
         )
 
-        df.write_parquet("output/training_data.parquet")
-
         return df
