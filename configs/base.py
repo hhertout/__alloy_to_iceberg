@@ -191,6 +191,14 @@ class PolarisSettings(BaseModel):
     token: str
 
 
+class UnitySettings(BaseModel):
+    """Databricks Unity Catalog settings."""
+
+    workspace_url: str
+    token: str
+    warehouse_id: str | None = None
+
+
 class PostgresSettings(BaseModel):
     connection_string: str
     ssl_enabled: bool = False
@@ -204,6 +212,7 @@ class IcebergSettings(BaseModel):
     table_name: str | None = None
     polaris: PolarisSettings | None = None
     postgres: PostgresSettings | None = None
+    unity: UnitySettings | None = None
 
 
 class MetricFilterSettings(BaseModel):

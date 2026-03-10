@@ -19,20 +19,20 @@ Grafana
 │  Prometheus datasource  │──▶┐
 │  Loki datasource        │──▶┤  ┌──────────────────────┐       ┌──────────────────┐
 └─────────────────────────┘   └─▶│ producer             │──────▶│ Kafka            │
-                                  │ metrics_producer.py  │──────▶│  topic: metrics  │──▶┐
-                                  └──────────────────────┘       │  topic: logs     │──▶┤
-                                                                  └──────────────────┘   │
-                                  ┌──────────────────────┐                               │
-                                  │ consumer             │◀──────────────────────────────┘
-                                  │ integration_         │
-                                  │ pipeline.py          │
-                                  └──────────┬───────────┘
-                                             │
-                                             ▼
-                                   ┌─────────────────────┐
-                                   │ Iceberg             │
-                                   │ (PostgreSQL catalog)│
-                                   └─────────────────────┘
+                                 │ metrics_producer.py  │──────▶│  topic: metrics  │──▶┐
+                                 └──────────────────────┘       │  topic: logs     │──▶┤
+                                                                └──────────────────┘   │
+                                ┌──────────────────────┐                               │
+                                │ consumer             │◀──────────────────────────────┘
+                                │ integration_         │
+                                │ pipeline.py          │
+                                └──────────┬───────────┘
+                                           │
+                                           ▼
+                                 ┌─────────────────────┐
+                                 │ Iceberg             │
+                                 │ (PostgreSQL catalog)│
+                                 └─────────────────────┘
 ```
 
 ## Chart structure

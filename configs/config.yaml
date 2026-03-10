@@ -76,6 +76,7 @@ integration:
       logs: logs
     # Kafka consumer group ID
     group_id: torch-group-1
+  
   # Iceberg configuration for storing processed data
   iceberg:
     # Iceberg catalog configuration
@@ -90,6 +91,12 @@ integration:
     #polaris:
     #  url: $POLARIS_URL
     #  token: $POLARIS_TOKEN
+    # Databricks Unity Catalog configuration
+    #unity:
+    #  workspace_url: $DATABRICKS_HOST
+    #  token: $DATABRICKS_TOKEN
+    #  warehouse_id: $DATABRICKS_WAREHOUSE_ID
+  
   # Metrics processing configuration
   metrics:
     include:

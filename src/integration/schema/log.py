@@ -1,6 +1,5 @@
 from pyiceberg.schema import Schema
 from pyiceberg.types import (
-    DoubleType,
     ListType,
     NestedField,
     StringType,
@@ -8,10 +7,9 @@ from pyiceberg.types import (
     TimestamptzType,
 )
 
-METRIC_SCHEMA = Schema(
+LOG_SCHEMA = Schema(
     NestedField(1, "timestamp", TimestamptzType(), required=False),
-    NestedField(2, "__name__", StringType(), required=False),
-    NestedField(3, "value", DoubleType(), required=False),
+    NestedField(3, "line", StringType(), required=False),
     NestedField(4, "service_name", StringType(), required=False),
     NestedField(5, "service_namespace", StringType(), required=False),
     NestedField(6, "k8s_namespace_name", StringType(), required=False),

@@ -1,20 +1,20 @@
 from pyiceberg.catalog import load_catalog
-from pyiceberg.table import Table
-
 from configs.base import AzureSettings, IntegrationSettings, load_storage_settings
-from src.integration.migrations.migrator import MetricsMigration
-from src.integration.schema.metric import METRICS_SCHEMA
+from src.integration.table_manager import TableManager
 
 
 class CatalogClient:
     def __init__(self, settings: IntegrationSettings):
         self._settings = settings
         self._backend_settings = load_storage_settings()
+        self.table_manager = TableManager()
 
         if settings.iceberg.postgres is not None:
             self.kind = "pg"
         elif settings.iceberg.polaris is not None:
             self.kind = "polaris"
+        elif settings.iceberg.unity is not None:
+            self.kind = "unity"
         else:
             raise ValueError("Unsupported catalog backend in settings")
 
@@ -50,6 +50,13 @@ class CatalogClient:
             args["catalog-type"] = "rest"
             args["uri"] = polaris.url
             args["credential"] = polaris.token
+        elif self._settings.iceberg.unity is not None:
+            unity = self._settings.iceberg.unity
+            args["catalog-type"] = "rest"
+            args["uri"] = f"{unity.workspace_url}/api/2.1/unity-catalog/iceberg"
+            args["token"] = unity.token
+            # Unity Catalog manages storage locations internally
+            args.pop("warehouse", None)
 
         self.catalog = load_catalog(self.kind, **args)
 
@@ -64,19 +71,4 @@ class CatalogClient:
                     raise e
 
     def create_tables(self) -> None:
-        metrics_table_name = "otlp_metrics"
-        identifier = f"{self._settings.iceberg.namespace}.{metrics_table_name}"
-        properties = {"write.parquet.compression-codec": "zstd"}
-
-        try:
-            self.metrics_table = self.catalog.create_table(
-                identifier, schema=METRICS_SCHEMA, properties=properties
-            )
-        except Exception as e:
-            if "already exists" not in str(e):
-                raise e
-            self.metrics_table = self.catalog.load_table(identifier)
-            self.__execute_migration(self.metrics_table)
-
-    def __execute_migration(self, table: Table) -> None:
-        MetricsMigration(table).migrate()
+        self.table_manager.create_tables(self.catalog, self._settings.iceberg.namespace)

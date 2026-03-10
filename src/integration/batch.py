@@ -13,6 +13,11 @@ _batch_metric_size_histogram = _meter.create_histogram(
     description="Number of rows in the batch",
 )
 
+_batch_metric_size_counter = _meter.create_counter(
+    "ml.integration_pipeline.batch_size",
+    description="Number of rows in the batch",
+)
+
 _batch_metric_size_bytes_histogram = _meter.create_histogram(
     "ml.integration_pipeline.batch_size_bytes",
     description="Size of the batch in bytes",
@@ -35,6 +40,7 @@ class Batch:
         self.size_bytes += df.estimated_size(unit="mb")
 
         _batch_metric_size_histogram.record(self.size, attributes=get_default_attributes())
+        _batch_metric_size_counter.add(len(df), attributes=get_default_attributes())
         _batch_metric_size_bytes_histogram.record(
             self.size_bytes, attributes=get_default_attributes()
         )

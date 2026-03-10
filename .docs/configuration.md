@@ -194,7 +194,7 @@ integration:
 
 ### `integration.iceberg`
 
-Configures the Iceberg catalog and warehouse used by the consumer to persist processed data. You must define exactly one catalog backend: either `postgres` or `polaris`.
+Configures the Iceberg catalog and warehouse used by the consumer to persist processed data. You must define exactly one catalog backend: `postgres`, `polaris`, or `unity`.
 
 ```yaml
 integration:
@@ -246,6 +246,27 @@ integration:
       # Authentication token for the Polaris API.
       # Env: POLARIS_TOKEN
       [token: <string>]
+```
+
+#### `integration.iceberg.unity`
+
+Uses a Databricks Unity Catalog as the Iceberg catalog backend via the REST API. Unity Catalog manages storage locations internally, so the `warehouse_path` setting is ignored when this backend is active.
+
+```yaml
+integration:
+  iceberg:
+    unity:
+      # URL of the Databricks workspace (e.g. https://<workspace>.cloud.databricks.com).
+      # Env: DATABRICKS_HOST
+      [workspace_url: <string>]
+
+      # Databricks personal access token or OAuth M2M token.
+      # Env: DATABRICKS_TOKEN
+      [token: <string>]
+
+      # (optional) SQL warehouse ID used for write operations.
+      # Env: DATABRICKS_WAREHOUSE_ID
+      [warehouse_id: <string>]
 ```
 
 ### `integration.metrics`
