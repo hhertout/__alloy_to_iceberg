@@ -10,12 +10,12 @@ _meter = get_meter("ml_obs.integration_pipeline")
 
 _batch_metric_size_histogram = _meter.create_histogram(
     "ml.integration_pipeline.batch_size",
-    description="Number of rows in the batch",
+    description="Number of rows accumulated in the current batch",
 )
 
-_batch_metric_size_counter = _meter.create_counter(
-    "ml.integration_pipeline.batch_size",
-    description="Number of rows in the batch",
+_batch_metric_rows_counter = _meter.create_counter(
+    "ml.integration_pipeline.batch_rows",
+    description="Total number of rows added to the batch",
 )
 
 _batch_metric_size_bytes_histogram = _meter.create_histogram(
@@ -30,23 +30,23 @@ class Batch:
     def __init__(self, logger: Logger, settings: IntegrationSettings):
         self.log = logger
         self.settings = settings
-        self.data = pl.DataFrame()
+        self._frames: list[pl.DataFrame] = []
         self.size_bytes: float = 0
         self.size = 0
 
     def add(self, df: pl.DataFrame) -> None:
-        self.data = pl.concat([self.data, df], how="vertical")
+        self._frames.append(df)
         self.size += len(df)
         self.size_bytes += df.estimated_size(unit="mb")
 
         _batch_metric_size_histogram.record(self.size, attributes=get_default_attributes())
-        _batch_metric_size_counter.add(len(df), attributes=get_default_attributes())
+        _batch_metric_rows_counter.add(len(df), attributes=get_default_attributes())
         _batch_metric_size_bytes_histogram.record(
             self.size_bytes, attributes=get_default_attributes()
         )
 
     def flush(self, client: CatalogClient) -> None:
-        data = self.data
+        data = pl.concat(self._frames, how="vertical") if self._frames else pl.DataFrame()
         try:
             # send to storage
             self.log.info(
@@ -57,7 +57,7 @@ class Batch:
             client.metrics_table.append(data.to_arrow())
 
             # reset batch
-            self.data = pl.DataFrame()
+            self._frames = []
             self.size = 0
             self.size_bytes = 0
 

@@ -1,4 +1,6 @@
+from pyiceberg.partitioning import PartitionField, PartitionSpec
 from pyiceberg.schema import Schema
+from pyiceberg.transforms import DayTransform
 from pyiceberg.types import (
     DoubleType,
     ListType,
@@ -44,4 +46,9 @@ METRIC_SCHEMA = Schema(
         ),
         required=False,
     ),
+)
+
+# Partition by day on timestamp to enable efficient time-range scans and Iceberg snapshot management.
+METRIC_PARTITION_SPEC = PartitionSpec(
+    PartitionField(source_id=1, field_id=1000, transform=DayTransform(), name="timestamp_day")
 )
