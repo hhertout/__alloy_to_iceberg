@@ -438,7 +438,7 @@ def load_integration_settings(config: dict[str, Any] | None = None) -> Integrati
             ),
             "integration.kafka.broker",
         ),
-        topic={"metrics": topic_metrics, "logs": topic_logs},
+        topic=KafkaTopicSettings(metrics=topic_metrics, logs=topic_logs),
         group_id=_require_non_empty(
             _first_non_empty(
                 _resolve_env_reference(kafka_config.get("group_id")),

@@ -33,7 +33,8 @@ def setup_logging(
     handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
 
     log_config = load_logs_settings()
-    level = log_config.log_level.upper() if log_config.log_level else level
+    if log_config.log_level:
+        level = log_config.log_level.upper()  # type: ignore[assignment]
 
     if enable_otel:
         try:
