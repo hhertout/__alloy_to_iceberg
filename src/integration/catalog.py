@@ -1,4 +1,5 @@
 from pyiceberg.catalog import load_catalog
+
 from configs.base import AzureSettings, IntegrationSettings, load_storage_settings
 from src.integration.table_manager import TableManager
 
@@ -71,4 +72,7 @@ class CatalogClient:
                     raise e
 
     def create_tables(self) -> None:
-        self.table_manager.create_tables(self.catalog, self._settings.iceberg.namespace)
+        namespace = self._settings.iceberg.namespace
+        if namespace is None:
+            raise ValueError("Cannot create tables: iceberg.namespace is not configured")
+        self.table_manager.create_tables(self.catalog, namespace)

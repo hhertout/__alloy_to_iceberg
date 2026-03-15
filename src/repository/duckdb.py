@@ -29,8 +29,10 @@ class BlobRepository:
         ATM, only the table metrics are loaded, but this can be extended in the future if needed.
         """
         self.catalog_client.create_tables()
-        self.metrics_table = self.catalog_client.metrics_table.location()
-        self.conn = self.catalog_client.metrics_table.scan().to_duckdb(table_name="otlp_metrics")
+        self.metrics_table = self.catalog_client.table_manager.metrics_table.location()
+        self.conn = self.catalog_client.table_manager.metrics_table.scan().to_duckdb(
+            table_name="otlp_metrics"
+        )
 
     def get_data_for_training(self) -> pl.DataFrame:
         """
@@ -40,7 +42,7 @@ class BlobRepository:
         df = cast(
             pl.DataFrame,
             self.conn.execute("""
-            WITH 
+            WITH
             -- Process attr and resource_attr
             metric_table AS (
                 SELECT

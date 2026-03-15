@@ -1,5 +1,5 @@
 from logging import Logger
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar
 
 import polars as pl
 from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceRequest
@@ -211,11 +211,24 @@ class IntegrationPipelineProcessor:
         for rl in msg.resource_logs:
             resource_raw = self._flatten_attrs(rl.resource.attributes)
             service_name = str(v) if (v := resource_raw.get("service.name")) is not None else None
-            service_namespace = str(v) if (v := resource_raw.get("service.namespace")) is not None else None
-            k8s_namespace_name = str(v) if (v := resource_raw.get("k8s.namespace.name")) is not None else None
+            service_namespace = (
+                str(v) if (v := resource_raw.get("service.namespace")) is not None else None
+            )
+            k8s_namespace_name = (
+                str(v) if (v := resource_raw.get("k8s.namespace.name")) is not None else None
+            )
             cluster_name = str(v) if (v := resource_raw.get("cluster.name")) is not None else None
-            host = str(v) if (v := resource_raw.get("host.name") or resource_raw.get("host")) is not None else None
-            env = str(v) if (v := resource_raw.get("env") or resource_raw.get("deployment.environment")) is not None else None
+            host = (
+                str(v)
+                if (v := resource_raw.get("host.name") or resource_raw.get("host")) is not None
+                else None
+            )
+            env = (
+                str(v)
+                if (v := resource_raw.get("env") or resource_raw.get("deployment.environment"))
+                is not None
+                else None
+            )
 
             for sl in rl.scope_logs:
                 for lr in sl.log_records:

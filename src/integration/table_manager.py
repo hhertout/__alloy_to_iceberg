@@ -7,9 +7,11 @@ from src.integration.migrations.migrator import MetricsMigration
 from src.integration.schema.log import LOG_PARTITION_SPEC, LOG_SCHEMA
 from src.integration.schema.metric import METRIC_PARTITION_SPEC, METRIC_SCHEMA
 
+
 class TableKind(Enum):
     METRIC = "metric"
     LOG = "log"
+
 
 class TableManager:
     def create_tables(self, catalog: Catalog, namespace: str) -> None:

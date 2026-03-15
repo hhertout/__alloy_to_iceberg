@@ -47,10 +47,13 @@ def main() -> None:
         c_client.create_namespace()
         c_client.create_tables()
 
-        consumer.subscribe([integration_settings.kafka.topic.metrics, integration_settings.kafka.topic.logs])
+        topics = [integration_settings.kafka.topic.metrics]
+        if integration_settings.kafka.topic.logs is not None:
+            topics.append(integration_settings.kafka.topic.logs)
+        consumer.subscribe(topics)
         log.info(
             "Kafka consumer initialized and subscribed to topics: %s, consumer group: %s",
-            [integration_settings.kafka.topic.metrics, integration_settings.kafka.topic.logs],
+            topics,
             integration_settings.kafka.group_id,
         )
 

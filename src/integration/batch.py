@@ -48,15 +48,25 @@ class Batch:
         self.size += len(df)
         self.size_bytes += df.estimated_size(unit="mb")
 
-        _batch_metric_size_histogram.record(self.size, attributes={**get_default_attributes(), "batch": kind})
-        _batch_metric_rows_counter.add(len(df), attributes={**get_default_attributes(), "batch": kind})
+        _batch_metric_size_histogram.record(
+            self.size, attributes={**get_default_attributes(), "batch": kind}
+        )
+        _batch_metric_rows_counter.add(
+            len(df), attributes={**get_default_attributes(), "batch": kind}
+        )
         _batch_metric_size_bytes_histogram.record(
             self.size_bytes, attributes={**get_default_attributes(), "batch": kind}
         )
 
     def flush(self, client: CatalogClient) -> None:
-        metric_data = pl.concat(self._metric_frames, how="vertical") if self._metric_frames else pl.DataFrame()
-        log_data = pl.concat(self._log_frames, how="vertical") if self._log_frames else pl.DataFrame()
+        metric_data = (
+            pl.concat(self._metric_frames, how="vertical")
+            if self._metric_frames
+            else pl.DataFrame()
+        )
+        log_data = (
+            pl.concat(self._log_frames, how="vertical") if self._log_frames else pl.DataFrame()
+        )
 
         metric_rows = len(metric_data)
         log_rows = len(log_data)
