@@ -27,32 +27,71 @@ Refer to [uv documentation](https://docs.astral.sh/uv/) for more details.
 ```
 dl_obs/
 ├── src/                        # Main source code
-│   ├── data/                   # Data access layer
-│   │   ├── az.py               # Azure Blob Storage client
+│   ├── client/                 # API clients
+│   │   ├── azure.py            # Azure Blob Storage client
 │   │   ├── grafana.py          # Grafana API client (DAO)
-│   │   └── grafana_dto.py      # Grafana data structures (DTO)
+│   │   ├── grafana_dto.py      # Grafana data structures (DTO)
+│   │   ├── polaris.py          # Apache Polaris client
+│   │   └── s3.py               # AWS S3 client
+│   ├── dataviz/                # Quick visualization utilities
+│   │   └── quick_preview.py
 │   ├── features/               # Feature engineering
-│   ├── models/                 # ML models
-│   └── processing/             # Data processing pipelines
-├── configs/                    # Python project configuration
+│   │   ├── base.py             # Abstract base class
+│   │   └── v1.py               # V1 feature pipeline
+│   ├── integration/            # Integration pipeline components
+│   │   ├── batch.py            # Batch accumulator
+│   │   ├── catalog.py          # Iceberg catalog client
+│   │   ├── processor.py        # OTLP message processor
+│   │   ├── table_manager.py    # Table creation & migrations
+│   │   ├── migrations/
+│   │   │   └── migrator.py     # Schema migration logic
+│   │   └── schema/
+│   │       ├── metric.py       # Iceberg metrics schema + partition spec
+│   │       └── log.py          # Iceberg logs schema + partition spec
+│   ├── models/                 # ML model definitions
+│   ├── processing/             # Data processing utilities
+│   │   ├── convert_df.py
+│   │   ├── data_processing.py
+│   │   ├── merge_dataframes.py
+│   │   ├── normalization.py
+│   │   ├── oltp_parser.py      # OTLP protobuf deserializer
+│   │   └── split_df_for_training.py
+│   ├── prophet/                # Prophet model
+│   ├── pytorch/                # PyTorch LSTM model
+│   ├── repository/             # Data access layer
+│   │   └── duckdb.py           # DuckDB / Iceberg query interface
+│   └── sklearn/                # Scikit-learn models
+├── configs/
+│   ├── base.py                 # Pydantic settings models
+│   ├── config.yaml             # Main configuration
 │   ├── constants.py            # Project constants
-│   └── queries.yaml            # Query definitions
-├── scripts/                    # Utility scripts
-│   └── push_to_blob.py         # Azure blob upload script
-├── experiments/                # ML experiments
+│   └── queries.yaml            # Grafana query definitions (legacy pipeline)
+├── scripts/                    # Runnable pipeline entrypoints
+│   ├── cli.py                  # Iceberg management CLI
+│   ├── integration_pipeline.py # Kafka → Iceberg consumer
+│   ├── metrics_producer.py     # Grafana → Kafka producer
+│   ├── predict.py              # Inference pipeline
+│   ├── push_to_blob.py         # Legacy: daily Blob Storage chunk
+│   └── train.py                # Model training pipeline
+├── utils/                      # Shared utilities
+│   ├── exceptions.py           # Custom exceptions
+│   ├── grafana_to_otlp.py      # Grafana response → OTLP conversion
+│   ├── logging.py              # Logging configuration
+│   ├── queries.py              # Query helpers
+│   ├── telemetry.py            # OpenTelemetry setup
+│   └── timerange.py            # Time range helpers
+├── experiments/                # ML experiments (notebooks)
 ├── tests/                      # Unit tests
 │   ├── conftest.py             # Shared fixtures
 │   └── test_*.py               # Test files
-├── utils/                      # Shared utilities
-│   ├── exceptions.py           # Custom exceptions
-│   └── logging.py              # Logging configuration
 ├── .docker/                    # Docker container configs
 │   ├── conf.alloy              # Alloy configuration
 │   ├── loki.yaml               # Loki configuration
 │   └── prometheus.yml          # Prometheus configuration
 ├── .docs/                      # Internal documentation
-├── .tf/                        # Terraform configuration
+├── .devops/                    # DevOps / infrastructure scripts
 ├── .github/workflows/          # CI/CD GitHub Actions
+├── .k8s/                       # Kubernetes manifests
 ├── .pre-commit-config.yaml     # Pre-commit hooks
 ├── docker-compose.yml          # Local stack definition
 ├── pyproject.toml              # Project configuration
