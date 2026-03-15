@@ -276,7 +276,7 @@ def no_filter_processor() -> IntegrationPipelineProcessor:
 
 class TestProcessMessage:
     def test_schema_matches_expected(self, no_filter_processor, fixture_bytes) -> None:
-        df = no_filter_processor.process_message(fixture_bytes)
+        df, _ = no_filter_processor.process_message(fixture_bytes)
         assert df.schema == {
             "timestamp": pl.Datetime("us", "UTC"),
             "__name__": pl.String,
@@ -292,31 +292,31 @@ class TestProcessMessage:
         }
 
     def test_total_datapoints(self, no_filter_processor, fixture_bytes) -> None:
-        df = no_filter_processor.process_message(fixture_bytes)
+        df, _ = no_filter_processor.process_message(fixture_bytes)
         assert len(df) == 898
 
     def test_unique_metric_count(self, no_filter_processor, fixture_bytes) -> None:
-        df = no_filter_processor.process_message(fixture_bytes)
+        df, _ = no_filter_processor.process_message(fixture_bytes)
         assert df["__name__"].n_unique() == 98
 
     def test_all_rows_have_service_name_redpanda(self, no_filter_processor, fixture_bytes) -> None:
-        df = no_filter_processor.process_message(fixture_bytes)
+        df, _ = no_filter_processor.process_message(fixture_bytes)
         assert df["service_name"].unique().to_list() == ["redpanda"]
 
     def test_timestamps_are_utc_datetime(self, no_filter_processor, fixture_bytes) -> None:
-        df = no_filter_processor.process_message(fixture_bytes)
+        df, _ = no_filter_processor.process_message(fixture_bytes)
         assert df["timestamp"].dtype == pl.Datetime("us", "UTC")
         assert df["timestamp"].null_count() == 0
 
     def test_known_metric_row_count_and_value(self, no_filter_processor, fixture_bytes) -> None:
         """redpanda_kafka_records_fetched_total has 5 dataPoints, one with value 1674."""
-        df = no_filter_processor.process_message(fixture_bytes)
+        df, _ = no_filter_processor.process_message(fixture_bytes)
         m = df.filter(pl.col("__name__") == "redpanda_kafka_records_fetched_total")
         assert len(m) == 5
         assert 1674.0 in m["value"].to_list()
 
     def test_resource_attributes_populated(self, no_filter_processor, fixture_bytes) -> None:
-        df = no_filter_processor.process_message(fixture_bytes)
+        df, _ = no_filter_processor.process_message(fixture_bytes)
         # Every row must have at least service.name in resource_attributes
         has_service_name = df.select(
             pl.col("resource_attributes")
@@ -327,7 +327,7 @@ class TestProcessMessage:
         assert has_service_name.all()
 
     def test_no_filter_returns_all_metrics(self, no_filter_processor, fixture_bytes) -> None:
-        df = no_filter_processor.process_message(fixture_bytes)
+        df, _ = no_filter_processor.process_message(fixture_bytes)
         assert len(df) == 898
 
     def test_filter_by_metric_name(self, fixture_bytes) -> None:
@@ -339,7 +339,7 @@ class TestProcessMessage:
             ),
         )
         proc = IntegrationPipelineProcessor(logging.getLogger("test"), settings)
-        df = proc.process_message(fixture_bytes)
+        df, _ = proc.process_message(fixture_bytes)
         assert len(df) == 5
         assert df["__name__"].unique().to_list() == ["redpanda_kafka_records_fetched_total"]
 
@@ -358,7 +358,7 @@ class TestProcessMessage:
             ),
         )
         proc = IntegrationPipelineProcessor(logging.getLogger("test"), settings)
-        df = proc.process_message(fixture_bytes)
+        df, _ = proc.process_message(fixture_bytes)
         # "kafka$" matches "kafka" but not "kafka_internal"
         assert len(df) == 3
         assert 1674.0 in df["value"].to_list()
@@ -377,7 +377,7 @@ class TestProcessMessage:
             ),
         )
         proc = IntegrationPipelineProcessor(logging.getLogger("test"), settings)
-        df = proc.process_message(fixture_bytes)
+        df, _ = proc.process_message(fixture_bytes)
         assert len(df) == 5
 
     def test_filter_unknown_metric_returns_empty(self, fixture_bytes) -> None:
@@ -387,5 +387,5 @@ class TestProcessMessage:
             metrics=MetricsSettings(include=[MetricFilterSettings(name="does_not_exist")]),
         )
         proc = IntegrationPipelineProcessor(logging.getLogger("test"), settings)
-        df = proc.process_message(fixture_bytes)
+        df, _ = proc.process_message(fixture_bytes)
         assert len(df) == 0

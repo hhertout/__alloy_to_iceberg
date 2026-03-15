@@ -37,7 +37,7 @@ LOG_SCHEMA = Schema(
         ListType(
             element_id=15,
             element_type=StructType(
-                NestedField(16, "key", StringType(), required=True),
+                NestedField(16, "key", StringType(), required=False),
                 NestedField(17, "value", StringType(), required=False),
             ),
             element_required=False,

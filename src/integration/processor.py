@@ -1,7 +1,8 @@
 from logging import Logger
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 import polars as pl
+from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceRequest
 from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceRequest
 from pydantic import BaseModel, Field
 
@@ -40,6 +41,19 @@ class MetricRow(BaseModel):
     attributes: list[KVPair]
 
 
+class LogRow(BaseModel):
+    timestamp: int
+    line: str | None
+    service_name: str | None = None
+    service_namespace: str | None = None
+    k8s_namespace_name: str | None = None
+    cluster_name: str | None = None
+    host: str | None = None
+    env: str | None = None
+    resource_attributes: list[KVPair]
+    attributes: list[KVPair]
+
+
 class IntegrationPipelineProcessor:
     """Process incoming OTLP JSON messages into a clean Polars DataFrame ready for batching and writing."""
 
@@ -52,6 +66,19 @@ class IntegrationPipelineProcessor:
         "timestamp": pl.Datetime("us", "UTC"),
         "__name__": pl.String,
         "value": pl.Float64,
+        "service_name": pl.String,
+        "service_namespace": pl.String,
+        "k8s_namespace_name": pl.String,
+        "cluster_name": pl.String,
+        "host": pl.String,
+        "env": pl.String,
+        "resource_attributes": pl.List(pl.Struct({"key": pl.String, "value": pl.String})),
+        "attributes": pl.List(pl.Struct({"key": pl.String, "value": pl.String})),
+    }
+
+    _LOG_SCHEMA: ClassVar[dict[str, Any]] = {
+        "timestamp": pl.Datetime("us", "UTC"),
+        "line": pl.String,
         "service_name": pl.String,
         "service_namespace": pl.String,
         "k8s_namespace_name": pl.String,
@@ -177,6 +204,51 @@ class IntegrationPipelineProcessor:
             ]
         )
 
+    def _logs_to_df(self, msg: ExportLogsServiceRequest) -> pl.DataFrame:
+        """Parse an OTLP logs payload into a Polars DataFrame matching the Iceberg log schema."""
+        rows: list[LogRow] = []
+
+        for rl in msg.resource_logs:
+            resource_raw = self._flatten_attrs(rl.resource.attributes)
+            service_name = str(v) if (v := resource_raw.get("service.name")) is not None else None
+            service_namespace = str(v) if (v := resource_raw.get("service.namespace")) is not None else None
+            k8s_namespace_name = str(v) if (v := resource_raw.get("k8s.namespace.name")) is not None else None
+            cluster_name = str(v) if (v := resource_raw.get("cluster.name")) is not None else None
+            host = str(v) if (v := resource_raw.get("host.name") or resource_raw.get("host")) is not None else None
+            env = str(v) if (v := resource_raw.get("env") or resource_raw.get("deployment.environment")) is not None else None
+
+            for sl in rl.scope_logs:
+                for lr in sl.log_records:
+                    body_kind = lr.body.WhichOneof("value")
+                    line = str(getattr(lr.body, body_kind)) if body_kind else None
+
+                    rows.append(
+                        LogRow(
+                            timestamp=lr.time_unix_nano or lr.observed_time_unix_nano,
+                            line=line,
+                            service_name=service_name,
+                            service_namespace=service_namespace,
+                            k8s_namespace_name=k8s_namespace_name,
+                            cluster_name=cluster_name,
+                            host=host,
+                            env=env,
+                            resource_attributes=self._attrs_to_kv_list(rl.resource.attributes),
+                            attributes=self._attrs_to_kv_list(lr.attributes),
+                        )
+                    )
+
+        if not rows:
+            return pl.DataFrame(schema=self._LOG_SCHEMA)
+
+        df = pl.from_dicts([row.model_dump() for row in rows], schema=self._LOG_SCHEMA)
+        df = df.with_columns(
+            pl.col("timestamp")
+            .cast(pl.Int64)
+            .cast(pl.Datetime("ns", "UTC"))
+            .cast(pl.Datetime("us", "UTC"))
+        )
+        return df
+
     def _filter_metrics(self, df: pl.DataFrame) -> pl.DataFrame:
         _raw_count = len(df)
         includes = self.settings.metrics.include
@@ -197,22 +269,21 @@ class IntegrationPipelineProcessor:
 
         return filtered_df
 
-    def process_message(self, msg: str | bytes) -> pl.DataFrame:
+    def process_message(self, msg: str | bytes) -> tuple[pl.DataFrame, pl.DataFrame]:
+        """Parse an OTLP JSON message and return (metrics_df, logs_df)."""
         self.log.debug("Starting processing message")
-
         self.log.debug("Parsing OTLP JSON message into metrics and logs")
-        self.log.debug("Parsing message: %s", msg)
 
-        # parse metrics and logs
-        metrics, _ = self.parser.parse(msg)
+        metrics_proto, logs_proto = self.parser.parse(msg)
 
         self.log.debug("Converting parsed metrics to Polars DataFrame")
-        df = self._metrics_to_df(metrics)
-        _message_raw_gauge.set(len(df))
+        metrics_df = self._metrics_to_df(metrics_proto)
+        _message_raw_gauge.set(len(metrics_df))
 
         self.log.debug("Filtering DataFrame based on configuration")
-        df = self._filter_metrics(df)
+        metrics_df = self._filter_metrics(metrics_df)
 
-        # TODO: add log parsing and processing, and combine with metrics if needed
+        self.log.debug("Converting parsed logs to Polars DataFrame")
+        logs_df = self._logs_to_df(logs_proto)
 
-        return df
+        return metrics_df, logs_df

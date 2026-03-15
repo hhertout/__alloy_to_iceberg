@@ -1,7 +1,13 @@
 logging {
   level    = "info"
   format   = "json"
-  write_to = [loki.write.loki.receiver]
+  write_to = [loki.write.loki.receiver, otelcol.receiver.loki.default.receiver]
+}
+
+otelcol.receiver.loki "default" {
+  output {
+    logs = [otelcol.processor.batch.kafka.input]
+  }
 }
 
 loki.write "loki" {

@@ -117,9 +117,9 @@ integration:
   # Logs processing configuration
   logs:
     include:
-      - service_name: redpanda
+      - service.name: alloy
+      - service.name: dl_obs
         level: info
-        contains: ".*dl_obs.*"
 
 # Model training configuration and limits
 limits:
