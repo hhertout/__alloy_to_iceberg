@@ -43,6 +43,16 @@ prometheus.scrape "redpanda" {
   job_name        = "redpanda"
 }
 
+// ─── Kafka metrics (via kafka-exporter) (commenté — remplacé par Redpanda) ───
+// prometheus.scrape "kafka" {
+//   targets = [{
+//     __address__ = "kafka-exporter:9308",
+//   }]
+//   forward_to      = [prometheus.remote_write.prom.receiver, otelcol.receiver.prometheus.default.receiver]
+//   scrape_interval = "30s"
+//   job_name        = "kafka"
+// }
+
 // ─── Cadvisor (embedded) ───
 // cAdvisor is embedded in Alloy — no separate container needed.
 // Alloy must run privileged with /sys, /var/lib/docker, and the Docker

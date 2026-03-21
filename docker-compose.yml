@@ -28,6 +28,9 @@ services:
       - /sys:/sys:ro
       - /var/lib/docker:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
+    depends_on:
+      redpanda:
+        condition: service_healthy
 
   loki:
     image: grafana/loki:latest
@@ -53,6 +56,81 @@ services:
       - ./.docker/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
 
+  # ─── Kafka KRaft (commenté — remplacé par Redpanda) ──────────────────────
+  # kafka:
+  #   image: apache/kafka:latest
+  #   container_name: kafka
+  #   ports:
+  #     - "9092:9092"       # internal (between containers)
+  #     - "19092:19092"     # external (from the host)
+  #   environment:
+  #     # KRaft — no Zookeeper
+  #     KAFKA_NODE_ID: 1
+  #     KAFKA_PROCESS_ROLES: broker,controller
+  #     KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+  #     # Listeners : PLAINTEXT for internal Docker, EXTERNAL for host, CONTROLLER for KRaft
+  #     KAFKA_LISTENERS: PLAINTEXT://:9092,EXTERNAL://:19092,CONTROLLER://:9093
+  #     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:19092
+  #     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+  #     KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+  #     KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+  #     # Disable auto-creation — topics are created explicitly by kafka-init
+  #     KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+  #     # Replication factor set to 1 (single broker)
+  #     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+  #     KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+  #     KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+  #   volumes:
+  #     - kafka_data:/var/lib/kafka/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+  #     interval: 15s
+  #     timeout: 10s
+  #     retries: 8
+  #     start_period: 30s
+
+  # # Create topics at startup, then stop
+  # kafka-init:
+  #   image: apache/kafka:latest
+  #   container_name: kafka-init
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #   entrypoint: ["/bin/bash", "-c"]
+  #   command: >
+  #     "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic metrics --partitions 3 --replication-factor 1 &&
+  #      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic logs --partitions 3 --replication-factor 1 &&
+  #      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic logs_iceberg --partitions 3 --replication-factor 1 &&
+  #      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic metrics_iceberg --partitions 3 --replication-factor 1 &&
+  #      echo 'Topics metrics and logs created.'"
+  #   restart: on-failure
+
+  # # Export Kafka metrics in Prometheus format (port 9308)
+  # kafka-exporter:
+  #   image: danielqsj/kafka-exporter:latest
+  #   container_name: kafka-exporter
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #   ports:
+  #     - "9308:9308"
+  #   command:
+  #     - "--kafka.server=kafka:9092"
+  #   restart: unless-stopped
+
+  # # UI Kafka
+  # kafka-ui:
+  #   image: provectuslabs/kafka-ui:latest
+  #   container_name: kafka-ui
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #   ports:
+  #     - "8082:8080"
+  #   environment:
+  #     - KAFKA_CLUSTERS_0_NAME=local
+  #     - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+
   redpanda:
     image: redpandadata/redpanda:latest
     container_name: redpanda
@@ -73,8 +151,8 @@ services:
     ports:
       - "18081:18081"  # Schema Registry
       - "18082:18082"  # HTTP Proxy (REST)
-      - "19092:19092"  # Kafka API
-      - "19644:9644"   # Admin API
+      - "19092:19092"  # Kafka API (external)
+      - "19644:9644"   # Admin API / metrics
     volumes:
       - redpanda_data:/var/lib/redpanda/data
     healthcheck:
@@ -132,4 +210,5 @@ volumes:
   prometheus_data:
   loki_data:
   redpanda_data:
+  # kafka_data:  # commenté — remplacé par redpanda_data
   postgres_data:

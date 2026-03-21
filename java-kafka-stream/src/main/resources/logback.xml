@@ -1,0 +1,22 @@
+<configuration>
+    <!-- Load application.properties from classpath so ${log.level} etc. are available -->
+    <property resource="application.properties"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} -- %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Internal Kafka client / broker chatter -->
+    <logger name="org.apache.kafka" level="${log.level.kafka:-WARN}"/>
+
+    <!-- Kafka Streams topology + task lifecycle -->
+    <logger name="org.apache.kafka.streams" level="${log.level.kafka.streams:-INFO}"/>
+
+    <!-- Application code -->
+    <root level="${log.level:-INFO}">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>
+

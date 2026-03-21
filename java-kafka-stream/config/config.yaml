@@ -1,0 +1,4 @@
+rules:
+  - service.namespace: "my_app"
+    service.name: "api-gateway"
+  - service.namespace: "my_app2"
