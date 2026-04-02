@@ -63,8 +63,8 @@ public final class MetricProcessor implements Processor<ExportMetricsServiceRequ
                 return;
             }
 
-            resourceMetrics.getScopeMetricsList().forEach(scopeMetrics ->
-                    scopeMetrics.getMetricsList().forEach(metric -> {
+            resourceMetrics.getScopeMetricsList()
+                    .forEach(scopeMetrics -> scopeMetrics.getMetricsList().forEach(metric -> {
                         Metric.DataCase type = metric.getDataCase();
                         switch (type) {
                             case GAUGE -> metric.getGauge()
@@ -81,13 +81,13 @@ public final class MetricProcessor implements Processor<ExportMetricsServiceRequ
                                     .forEach(dp -> response.add(processHistogramDataPoints(metric, dp, resourceAttr)));
                             case EXPONENTIAL_HISTOGRAM -> metric.getExponentialHistogram()
                                     .getDataPointsList()
-                                    .forEach(dp -> response.add(processExponentialHistogramDataPoints(metric, dp, resourceAttr)));
+                                    .forEach(dp -> response
+                                            .add(processExponentialHistogramDataPoints(metric, dp, resourceAttr)));
                             default -> {
                                 System.out.println("Unsupported metric type: " + type);
                             }
                         }
-                    })
-            );
+                    }));
         });
 
         return response;
@@ -116,9 +116,11 @@ public final class MetricProcessor implements Processor<ExportMetricsServiceRequ
             return false;
         }
 
-        boolean isServiceNamespaceMatch = this.serviceNamespaceList.contains(serviceNamespace.getValue().getStringValue());
+        boolean isServiceNamespaceMatch = this.serviceNamespaceList
+                .contains(serviceNamespace.getValue().getStringValue());
         if (!isServiceNamespaceMatch) {
-            // early return if service namespace doesn't match - Service namespace must be defined
+            // early return if service namespace doesn't match - Service namespace must be
+            // defined
             return false;
         }
 
@@ -153,10 +155,12 @@ public final class MetricProcessor implements Processor<ExportMetricsServiceRequ
         NumberDataPoint.ValueCase valueCase = dp.getValueCase();
         switch (valueCase) {
             case AS_DOUBLE -> {
-                return buildOutput(dp.getTimeUnixNano(), metric.getName(), dp.getAsDouble(), Optional.empty(), resourceAttr, attr);
+                return buildOutput(dp.getTimeUnixNano(), metric.getName(), dp.getAsDouble(), Optional.empty(),
+                        resourceAttr, attr);
             }
             case AS_INT -> {
-                return buildOutput(dp.getTimeUnixNano(), metric.getName(), dp.getAsInt(), Optional.empty(), resourceAttr, attr);
+                return buildOutput(dp.getTimeUnixNano(), metric.getName(), dp.getAsInt(), Optional.empty(),
+                        resourceAttr, attr);
             }
             default -> {
                 throw new RuntimeException("Unsupported value type: " + valueCase);
@@ -164,38 +168,46 @@ public final class MetricProcessor implements Processor<ExportMetricsServiceRequ
         }
     }
 
-    private OutputMetrics processHistogramDataPoints(Metric metric, HistogramDataPoint dp, List<KeyValueStore> resourceAttr) {
+    private OutputMetrics processHistogramDataPoints(Metric metric, HistogramDataPoint dp,
+            List<KeyValueStore> resourceAttr) {
         List<KeyValueStore> attr = dp.getAttributesList()
                 .stream()
                 .map(v -> new KeyValueStore(v.getKey(), v.getValue().getStringValue()))
                 .toList();
 
-        // value = sum, count stored separately — consumer can derive average as value/count
+        // value = sum, count stored separately — consumer can derive average as
+        // value/count
         double value = dp.hasSum() ? dp.getSum() : 0.0;
-        return buildOutput(dp.getTimeUnixNano(), metric.getName(), value, Optional.of(dp.getCount()), resourceAttr, attr);
+        return buildOutput(dp.getTimeUnixNano(), metric.getName(), value, Optional.of(dp.getCount()), resourceAttr,
+                attr);
     }
 
-    private OutputMetrics processExponentialHistogramDataPoints(Metric metric, ExponentialHistogramDataPoint dp, List<KeyValueStore> resourceAttr) {
+    private OutputMetrics processExponentialHistogramDataPoints(Metric metric, ExponentialHistogramDataPoint dp,
+            List<KeyValueStore> resourceAttr) {
         List<KeyValueStore> attr = dp.getAttributesList()
                 .stream()
                 .map(v -> new KeyValueStore(v.getKey(), v.getValue().getStringValue()))
                 .toList();
 
         double value = dp.hasSum() ? dp.getSum() : 0.0;
-        return buildOutput(dp.getTimeUnixNano(), metric.getName(), value, Optional.of(dp.getCount()), resourceAttr, attr);
+        return buildOutput(dp.getTimeUnixNano(), metric.getName(), value, Optional.of(dp.getCount()), resourceAttr,
+                attr);
     }
 
-    private OutputMetrics processSummaryDataPoints(Metric metric, SummaryDataPoint dp, List<KeyValueStore> resourceAttr) {
+    private OutputMetrics processSummaryDataPoints(Metric metric, SummaryDataPoint dp,
+            List<KeyValueStore> resourceAttr) {
         List<KeyValueStore> attr = dp.getAttributesList()
                 .stream()
                 .map(v -> new KeyValueStore(v.getKey(), v.getValue().getStringValue()))
                 .toList();
 
         // Summary: sum and count are plain proto3 scalars, always present
-        return buildOutput(dp.getTimeUnixNano(), metric.getName(), dp.getSum(), Optional.of(dp.getCount()), resourceAttr, attr);
+        return buildOutput(dp.getTimeUnixNano(), metric.getName(), dp.getSum(), Optional.of(dp.getCount()),
+                resourceAttr, attr);
     }
 
-    private OutputMetrics buildOutput(long ts, String metricName, double value, Optional<Long> count, List<KeyValueStore> resourceAttributes, List<KeyValueStore> attributes) {
+    private OutputMetrics buildOutput(long ts, String metricName, double value, Optional<Long> count,
+            List<KeyValueStore> resourceAttributes, List<KeyValueStore> attributes) {
         return new OutputMetrics(
                 ts,
                 metricName,
@@ -212,7 +224,6 @@ public final class MetricProcessor implements Processor<ExportMetricsServiceRequ
                 extractResourceAttrKey(resourceAttributes, "host"),
                 extractResourceAttrKey(resourceAttributes, "topic"),
                 resourceAttributes,
-                attributes
-        );
+                attributes);
     }
 }

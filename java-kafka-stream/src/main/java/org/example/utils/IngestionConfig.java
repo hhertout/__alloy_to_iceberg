@@ -13,14 +13,12 @@ import java.util.Optional;
 
 public class IngestionConfig {
     public record Config(
-            @JsonProperty("rules") ArrayList<AppIngestionConfig> rules
-    ) {
+            @JsonProperty("rules") ArrayList<AppIngestionConfig> rules) {
     }
 
     public record AppIngestionConfig(
             @JsonProperty("service.namespace") String serviceNamespace,
-            @JsonProperty("service.name") Optional<String> serviceName
-    ) {
+            @JsonProperty("service.name") Optional<String> serviceName) {
     }
 
     public static final ObjectMapper MAPPER = new ObjectMapper(new YAMLFactory())

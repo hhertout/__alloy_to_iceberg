@@ -21,7 +21,8 @@ public class InputSerializer<T extends Message> implements Serializer<T>, Deseri
     }
 
     @Override
-    public void configure(final Map<String, ?> configs, final boolean isKey) {}
+    public void configure(final Map<String, ?> configs, final boolean isKey) {
+    }
 
     @Override
     @SuppressWarnings("unchecked")
@@ -32,8 +33,8 @@ public class InputSerializer<T extends Message> implements Serializer<T>, Deseri
         try {
             Message.Builder builder = builderSupplier.get();
             JsonFormat.parser()
-                      .ignoringUnknownFields()
-                      .merge(new String(data, StandardCharsets.UTF_8), builder);
+                    .ignoringUnknownFields()
+                    .merge(new String(data, StandardCharsets.UTF_8), builder);
             return (T) builder.build();
         } catch (InvalidProtocolBufferException e) {
             throw new SerializationException("Failed to deserialize protobuf JSON message on topic: " + topic, e);
@@ -53,7 +54,8 @@ public class InputSerializer<T extends Message> implements Serializer<T>, Deseri
     }
 
     @Override
-    public void close() {}
+    public void close() {
+    }
 
     @Override
     public Serializer<T> serializer() {

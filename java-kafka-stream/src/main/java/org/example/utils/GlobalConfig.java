@@ -15,7 +15,7 @@ public class GlobalConfig {
     public GlobalConfig() {
         props = new Properties();
         try (InputStream is = GlobalConfig.class.getClassLoader()
-                                             .getResourceAsStream("application.properties")) {
+                .getResourceAsStream("application.properties")) {
             if (is == null) {
                 throw new IllegalStateException("application.properties not found on classpath");
             }
@@ -63,4 +63,3 @@ public class GlobalConfig {
         return props.getProperty(key, defaultValue);
     }
 }
-
